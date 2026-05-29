@@ -1,0 +1,206 @@
+'use client';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { ProposalLayout } from '@/components/layout/ProposalLayout';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { useProjectStore } from '@/lib/store/projectStore';
+import type { ScheduleActivity } from '@/types';
+import { Plus, RefreshCw } from 'lucide-react';
+import { clsx } from 'clsx';
+
+function generateMonths(startDate: string, endDate: string): string[] {
+  if (!startDate || !endDate) {
+    const now = new Date();
+    const months = [];
+    for (let i = 0; i < 36; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      months.push(`${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return months;
+  }
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const months = [];
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cur <= end) {
+    months.push(`${cur.getFullYear()}.${String(cur.getMonth() + 1).padStart(2, '0')}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return months;
+}
+
+function initActivities(structure: ReturnType<typeof useProjectStore.getState>['structure']): ScheduleActivity[] {
+  if (!structure) return [];
+  const activities: ScheduleActivity[] = [];
+  const allActivities = structure.objectiveTree?.activities || [];
+  allActivities.forEach((a, i) => {
+    activities.push({
+      id: a.id,
+      code: `A${i + 1}`,
+      name: a.text,
+      periods: [],
+    });
+  });
+  return activities;
+}
+
+export default function MonitoringSchedulePage() {
+  const { project, structure, scheduleActivities, setScheduleActivities, updateSection } = useProjectStore();
+  const months = generateMonths(project?.startDate || '', project?.endDate || '');
+
+  const [activities, setActivities] = useState<ScheduleActivity[]>(
+    scheduleActivities.length > 0 ? scheduleActivities : initActivities(structure)
+  );
+  const [dragging, setDragging] = useState<{ actId: string; startIdx: number } | null>(null);
+  const [newRowName, setNewRowName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (activities !== scheduleActivities) {
+      setScheduleActivities(activities);
+    }
+  }, [activities]);
+
+  function syncFromPDM() {
+    const newActs = initActivities(structure);
+    setActivities(newActs);
+  }
+
+  function toggleCell(actId: string, monthIdx: number) {
+    setActivities((prev) =>
+      prev.map((a) => {
+        if (a.id !== actId) return a;
+        const periods = [...(a.periods || [])];
+        periods[monthIdx] = !periods[monthIdx];
+        return { ...a, periods };
+      })
+    );
+  }
+
+  function handleMouseDown(actId: string, monthIdx: number) {
+    setDragging({ actId, startIdx: monthIdx });
+    toggleCell(actId, monthIdx);
+  }
+
+  function handleMouseEnter(actId: string, monthIdx: number) {
+    if (!dragging || dragging.actId !== actId) return;
+    setActivities((prev) =>
+      prev.map((a) => {
+        if (a.id !== actId) return a;
+        const periods = [...(a.periods || [])];
+        const [from, to] = [Math.min(dragging.startIdx, monthIdx), Math.max(dragging.startIdx, monthIdx)];
+        const value = periods[dragging.startIdx];
+        for (let i = from; i <= to; i++) periods[i] = value;
+        return { ...a, periods };
+      })
+    );
+  }
+
+  function addRow() {
+    const name = newRowName.trim() || '새 활동';
+    setActivities((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), code: `A${prev.length + 1}`, name, periods: [] },
+    ]);
+    setNewRowName('');
+  }
+
+  function handleSave() {
+    setScheduleActivities(activities);
+    updateSection('monitoring-schedule', JSON.stringify(activities), activities.length > 0 ? 'completed' : 'empty');
+  }
+
+  return (
+    <ProposalLayout sectionId="monitoring-schedule" sectionTitle="부문별 상세 사업 추진 일정">
+      <div className="px-6 py-6">
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {['일정 현실성', '마일스톤', '평가 일정'].map((tag) => (
+            <Badge key={tag} variant="olive">{tag}</Badge>
+          ))}
+        </div>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-bold text-[#111827]">III-4 부문별 상세 사업 추진 일정</h1>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={syncFromPDM}>
+              <RefreshCw size={13} />
+              PDM에서 활동 가져오기
+            </Button>
+            <Button size="sm" onClick={handleSave}>저장</Button>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-[#8AA81E]" />활동 수행 기간</div>
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-gray-100 border border-gray-200" />비활동 기간</div>
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-[#b5d147]" />드래그 선택 중</div>
+          <span className="text-gray-400">Tip: 드래그하여 여러 월을 한 번에 선택할 수 있습니다.</span>
+        </div>
+
+        {/* Table */}
+        <div
+          className="overflow-x-auto bg-white border border-[#D9E6B7] rounded-xl"
+          onMouseUp={() => setDragging(null)}
+          onMouseLeave={() => setDragging(null)}
+        >
+          <table className="w-max min-w-full border-collapse text-xs select-none">
+            <thead>
+              <tr className="bg-[#F7F8F2]">
+                <th className="w-8 border-b border-r border-gray-100 px-2 py-2 text-gray-400 font-normal">선택</th>
+                <th className="w-14 border-b border-r border-gray-100 px-2 py-2 text-gray-500 font-medium">코드</th>
+                <th className="w-48 border-b border-r border-gray-100 px-3 py-2 text-gray-500 font-medium text-left">활동명</th>
+                {months.map((m) => (
+                  <th key={m} className="w-9 border-b border-r border-gray-100 px-1 py-1 text-center text-gray-400 font-normal" style={{ writingMode: 'vertical-rl', minWidth: 36 }}>
+                    {m}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((act) => (
+                <tr key={act.id} className="hover:bg-[#F7F8F2]">
+                  <td className="border-b border-r border-gray-100 px-2 py-1 text-center">
+                    <input type="checkbox" className="accent-[#8AA81E]" />
+                  </td>
+                  <td className="border-b border-r border-gray-100 px-2 py-1 text-gray-400">{act.code}</td>
+                  <td className="border-b border-r border-gray-100 px-3 py-1 text-gray-700 max-w-xs">
+                    <div className="truncate">{act.name}</div>
+                  </td>
+                  {months.map((_, idx) => (
+                    <td
+                      key={idx}
+                      className={clsx(
+                        'schedule-cell border-b border-r border-gray-100',
+                        act.periods?.[idx] ? 'bg-[#8AA81E]' : 'bg-white hover:bg-[#EEF5D6]'
+                      )}
+                      onMouseDown={() => handleMouseDown(act.id, idx)}
+                      onMouseEnter={() => handleMouseEnter(act.id, idx)}
+                    />
+                  ))}
+                </tr>
+              ))}
+              {/* Add row */}
+              <tr>
+                <td colSpan={3 + months.length} className="px-3 py-2 border-t border-dashed border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={inputRef}
+                      value={newRowName}
+                      onChange={(e) => setNewRowName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addRow()}
+                      placeholder="활동명 입력 후 Enter"
+                      className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#8AA81E]"
+                    />
+                    <Button size="sm" variant="ghost" onClick={addRow}>
+                      <Plus size={12} /> 활동 추가
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </ProposalLayout>
+  );
+}
