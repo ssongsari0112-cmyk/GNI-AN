@@ -37,31 +37,38 @@ export function StepHeader() {
         </Link>
 
         <div className="flex items-center gap-0">
-          {STEPS.map((step, i) => (
-            <div key={step.label} className="flex items-center">
+          {STEPS.map((step, i) => {
+            const isPast = i < currentStep;
+            const isCurrent = i === currentStep;
+            const inner = (
               <div className={clsx(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                i === currentStep
+                isCurrent
                   ? 'bg-[#EEF5D6] text-[#5a7012]'
-                  : i < currentStep
-                  ? 'text-[#8AA81E]'
-                  : 'text-gray-400'
+                  : isPast
+                  ? 'text-[#8AA81E] hover:bg-[#EEF5D6] cursor-pointer'
+                  : 'text-gray-400 cursor-default'
               )}>
-                {i < currentStep ? (
+                {isPast ? (
                   <Check size={12} className="text-[#8AA81E]" />
                 ) : (
                   <span className={clsx(
                     'w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold',
-                    i === currentStep ? 'bg-[#8AA81E] text-white' : 'bg-gray-200 text-gray-400'
+                    isCurrent ? 'bg-[#8AA81E] text-white' : 'bg-gray-200 text-gray-400'
                   )}>{i + 1}</span>
                 )}
                 {step.label}
               </div>
-              {i < STEPS.length - 1 && (
-                <span className="text-gray-200 mx-0.5">›</span>
-              )}
-            </div>
-          ))}
+            );
+            return (
+              <div key={step.label} className="flex items-center">
+                {isPast ? <Link href={step.path}>{inner}</Link> : inner}
+                {i < STEPS.length - 1 && (
+                  <span className="text-gray-200 mx-0.5">›</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </header>

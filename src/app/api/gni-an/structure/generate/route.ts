@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateText, isApiKeyConfigured } from '@/lib/api/anthropic';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
+import { PROMPTS } from '@/lib/prompts';
+import { parseAIJson } from '@/lib/parseJSON';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,107 +11,155 @@ export async function POST(req: NextRequest) {
       ?.map((s: { expertId: string; summary?: string }) => `[${s.expertId} 전문가 상담]: ${s.summary || ''}`)
       .join('\n') || '';
 
-    const systemPrompt = `당신은 KOICA 시민사회협력사업 전문가로, 문제분석, 목표체계, PDM을 설계하는 전문가입니다.
-반드시 유효한 JSON만 반환하세요. 마크다운 코드블록 없이 순수 JSON을 반환하세요.`;
+    const systemPrompt = PROMPTS.structureSystem;
 
-    const userMessage = `다음 정보를 바탕으로 사업 구조를 생성해주세요:
+    const userMessage = `다음 정보를 바탕으로 KOICA 시민사회협력사업 구조를 상세하게 생성해주세요.
+모든 항목은 실제 제안서에 바로 활용할 수 있는 수준으로 구체적이고 현실적으로 작성하세요.
 
 사업 분야: ${ideation?.field}
 대상 국가: ${ideation?.country}
+세부 지역: ${ideation?.subRegion || '미지정'}
 사업 아이디어: ${ideation?.idea}
-핵심 문제: ${analysis?.coreProblem}
-개입 방안: ${analysis?.interventionApproach}
-기대 성과: ${analysis?.expectedOutcomes}
+주요 수혜자: ${ideation?.beneficiaries || '미지정'}
+총사업비: ${ideation?.budget || '미지정'}
+사업 기간: ${ideation?.duration || '미지정'}
+
+AI 분석 결과:
+- 핵심 문제: ${analysis?.coreProblem}
+- 수혜자: ${analysis?.targetBeneficiaries}
+- 개입 방안: ${analysis?.interventionApproach}
+- 기대 성과: ${analysis?.expectedOutcomes}
 
 전문가 상담 인사이트:
-${consultingContext}
+${consultingContext || '(상담 내용 없음)'}
 
-다음 JSON 형식으로 반환해주세요:
+아래 JSON 구조를 그대로 따르되, 모든 값을 위 사업 정보에 맞게 구체적으로 채워주세요:
 {
   "problemTree": {
     "effects": [
-      {"id": "e1", "text": "결과1"},
-      {"id": "e2", "text": "결과2"}
+      {"id": "e1", "text": "결과 1 — 구체적 사회적 결과"},
+      {"id": "e2", "text": "결과 2 — 구체적 사회적 결과"},
+      {"id": "e3", "text": "결과 3 — 구체적 사회적 결과"}
     ],
-    "coreProblem": "핵심 문제 한 문장",
+    "coreProblem": "대상 집단·지역·문제 현상을 포함한 핵심 문제 한 문장",
     "causes": [
       {
         "id": "c1",
-        "text": "직접 원인 1",
-        "children": [{"id": "c1-1", "text": "근본 원인 1-1"}]
+        "text": "직접 원인 1 (구체적)",
+        "children": [
+          {"id": "c1-1", "text": "근본 원인 1-1"},
+          {"id": "c1-2", "text": "근본 원인 1-2"}
+        ]
+      },
+      {
+        "id": "c2",
+        "text": "직접 원인 2 (구체적)",
+        "children": [
+          {"id": "c2-1", "text": "근본 원인 2-1"},
+          {"id": "c2-2", "text": "근본 원인 2-2"}
+        ]
+      },
+      {
+        "id": "c3",
+        "text": "직접 원인 3 (구체적)",
+        "children": [
+          {"id": "c3-1", "text": "근본 원인 3-1"}
+        ]
       }
     ]
   },
   "objectiveTree": {
-    "impact": "영향(Impact): SDGs 연계 궁극적 변화",
-    "purpose": "사업목적: 사업 종료 시 달성 목표",
+    "impact": "SDG X.X 연계 — 궁극적 사회 변화 서술",
+    "purpose": "사업 종료 시점에 달성할 구체적 변화 상태 (수혜자, 수치, 지역 포함)",
     "outcomes": [
-      {"id": "o1", "text": "성과 1", "level": "outcome", "children": [
-        {"id": "o1-1", "text": "산출물 1.1", "level": "output"},
-        {"id": "o1-2", "text": "산출물 1.2", "level": "output"}
+      {"id": "o1", "text": "성과 1 (구체적)", "level": "outcome", "children": [
+        {"id": "o1-1", "text": "산출물 1.1 (구체적)", "level": "output"},
+        {"id": "o1-2", "text": "산출물 1.2 (구체적)", "level": "output"}
       ]},
-      {"id": "o2", "text": "성과 2", "level": "outcome", "children": [
-        {"id": "o2-1", "text": "산출물 2.1", "level": "output"}
+      {"id": "o2", "text": "성과 2 (구체적)", "level": "outcome", "children": [
+        {"id": "o2-1", "text": "산출물 2.1 (구체적)", "level": "output"},
+        {"id": "o2-2", "text": "산출물 2.2 (구체적)", "level": "output"}
       ]}
     ],
     "outputs": [],
     "activities": [
       {"id": "a1-1-1", "text": "활동 1.1.1", "level": "activity"},
       {"id": "a1-1-2", "text": "활동 1.1.2", "level": "activity"},
-      {"id": "a2-1-1", "text": "활동 2.1.1", "level": "activity"}
+      {"id": "a1-2-1", "text": "활동 1.2.1", "level": "activity"},
+      {"id": "a2-1-1", "text": "활동 2.1.1", "level": "activity"},
+      {"id": "a2-2-1", "text": "활동 2.2.1", "level": "activity"}
     ]
   },
   "pdm": [
     {
-      "id": "pdm-impact",
-      "level": "impact",
-      "code": "Impact",
-      "narrative": "영향 서술",
-      "indicators": "영향 지표",
-      "verificationMeans": "검증수단",
-      "assumptions": "외부 가정",
+      "id": "pdm-impact", "level": "impact", "code": "Impact",
+      "narrative": "SDG 연계 영향 서술",
+      "indicators": "국가 단위 측정 지표",
+      "verificationMeans": "국가 통계, UN 보고서",
+      "assumptions": "국가 정책 환경 지속",
       "children": []
     },
     {
-      "id": "pdm-purpose",
-      "level": "purpose",
-      "code": "OG",
-      "narrative": "사업목적 서술",
-      "indicators": "지표 (기초선: XX%, 목표: XX%)",
-      "verificationMeans": "검증수단",
-      "assumptions": "가정",
+      "id": "pdm-purpose", "level": "purpose", "code": "OG",
+      "narrative": "사업목적 구체적 서술",
+      "indicators": "핵심 지표 (기초선: XX, 목표: YY, 측정 시점: 사업 종료 시)",
+      "verificationMeans": "모니터링 조사, 행정 데이터",
+      "assumptions": "현지 파트너 역량 유지, 정치적 안정",
       "children": []
     },
     {
-      "id": "pdm-o1",
-      "level": "outcome",
-      "code": "IM 1",
-      "narrative": "성과 1 서술",
-      "indicators": "성과지표",
-      "verificationMeans": "검증수단",
-      "assumptions": "가정",
+      "id": "pdm-o1", "level": "outcome", "code": "IM 1",
+      "narrative": "성과 1 구체적 서술",
+      "indicators": "성과 지표 (기초선: XX, 목표: YY)",
+      "verificationMeans": "정기 모니터링 보고서",
+      "assumptions": "수혜자 참여 지속",
       "children": [
         {
-          "id": "pdm-output-1-1",
-          "level": "output",
-          "code": "Output 1.1",
-          "narrative": "산출물 서술",
+          "id": "pdm-out-1-1", "level": "output", "code": "Output 1.1",
+          "narrative": "산출물 1.1 구체적 서술",
+          "indicators": "산출 지표 (수량·질적 지표)",
+          "verificationMeans": "사업 완료 보고서",
+          "assumptions": "예산 집행 정상",
+          "children": []
+        },
+        {
+          "id": "pdm-out-1-2", "level": "output", "code": "Output 1.2",
+          "narrative": "산출물 1.2 구체적 서술",
           "indicators": "산출 지표",
-          "verificationMeans": "검증수단",
-          "assumptions": "가정",
+          "verificationMeans": "교육/훈련 기록",
+          "assumptions": "참여자 모집 가능",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "pdm-o2", "level": "outcome", "code": "IM 2",
+      "narrative": "성과 2 구체적 서술",
+      "indicators": "성과 지표 (기초선: XX, 목표: YY)",
+      "verificationMeans": "설문조사, 현장 점검",
+      "assumptions": "현지 기관 협력 유지",
+      "children": [
+        {
+          "id": "pdm-out-2-1", "level": "output", "code": "Output 2.1",
+          "narrative": "산출물 2.1 구체적 서술",
+          "indicators": "산출 지표",
+          "verificationMeans": "완료 보고서",
+          "assumptions": "자재·장비 조달 가능",
           "children": []
         }
       ]
     }
   ],
   "insights": [
-    {"id": "i1", "category": "문제 정의", "content": "인사이트 내용", "confidence": "high", "source": "AI 분석"},
-    {"id": "i2", "category": "수혜자", "content": "인사이트 내용", "confidence": "medium", "source": "전문가 상담"},
-    {"id": "i3", "category": "개입 전략", "content": "인사이트 내용", "confidence": "high", "source": "AI 분석"}
+    {"id": "i1", "category": "문제 정의", "content": "구체적 인사이트 내용", "confidence": "high", "source": "AI 분석"},
+    {"id": "i2", "category": "수혜자", "content": "구체적 인사이트 내용", "confidence": "high", "source": "AI 분석"},
+    {"id": "i3", "category": "개입 전략", "content": "구체적 인사이트 내용", "confidence": "medium", "source": "전문가 상담"},
+    {"id": "i4", "category": "리스크", "content": "구체적 인사이트 내용", "confidence": "medium", "source": "AI 분석"},
+    {"id": "i5", "category": "지속가능성", "content": "구체적 인사이트 내용", "confidence": "high", "source": "AI 분석"}
   ]
 }`;
 
-    if (!isApiKeyConfigured()) {
+    if (!isOpenAIConfigured()) {
       return NextResponse.json({
         success: true,
         data: {
@@ -152,7 +202,7 @@ ${consultingContext}
     }
 
     const result = await generateText([{ role: 'user', content: userMessage }], systemPrompt);
-    const parsed = JSON.parse(result);
+    const parsed = parseAIJson(result) as any;
 
     return NextResponse.json({ success: true, data: parsed });
   } catch (error) {

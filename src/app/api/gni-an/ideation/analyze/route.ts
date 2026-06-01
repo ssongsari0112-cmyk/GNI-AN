@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateText, isApiKeyConfigured } from '@/lib/api/anthropic';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
+import { parseAIJson } from '@/lib/parseJSON';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { field, country, subRegion, idea, beneficiaries, budget, duration } = body;
 
-    if (!isApiKeyConfigured()) {
+    if (!isOpenAIConfigured()) {
       return NextResponse.json({
         success: true,
         data: {
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 }`;
 
     const result = await generateText([{ role: 'user', content: userMessage }], systemPrompt);
-    const parsed = JSON.parse(result);
+    const parsed = parseAIJson(result);
 
     return NextResponse.json({ success: true, data: parsed });
   } catch (error) {

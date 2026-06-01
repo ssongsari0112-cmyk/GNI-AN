@@ -8,6 +8,37 @@ import type { Expert, ChatMessage, ExpertSession } from '@/types';
 import { Check, ChevronDown, ChevronUp, Send, CheckCircle2, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
+const EXPERT_INTROS: Record<string, { years: string; areas: string[]; perspective: string }> = {
+  field: {
+    years: '15년 이상',
+    areas: ['분야별 문제 분석', '이해관계자 전략', '성과 지표 설계', '모범사례 적용'],
+    perspective: '분야 전문',
+  },
+  regional: {
+    years: '10년 이상',
+    areas: ['현지 정책 및 CPS', '문화·사회적 맥락', '현지 파트너십', '리스크 분석'],
+    perspective: '현지 정책',
+  },
+  planning: {
+    years: '20년 이상',
+    areas: ['사업 설계 및 ToC', 'PDM 작성', '수혜 대상 설정', '출구 전략'],
+    perspective: '사업 설계',
+  },
+  me: {
+    years: '15년 이상',
+    areas: ['SMART 지표 설계', '기초선 조사 설계', '데이터 수집 체계', '성과 관리'],
+    perspective: '지표 설계',
+  },
+};
+
+function getIntroMessage(expert: Expert, idea?: string): string {
+  const intro = EXPERT_INTROS[expert.type] || EXPERT_INTROS.field;
+  const areaList = intro.areas.map((a) => '- ' + a).join('\n');
+  const ideaSnip = idea ? idea.slice(0, 120) + (idea.length > 120 ? '...' : '') : '';
+  const ideaText = idea ? '\n말씀하신 사업 아이디어를 확인했습니다:\n"' + ideaSnip + '"\n' : '';
+  return '안녕하세요! ' + expert.title + '입니다. 해당 분야에서 ' + intro.years + '의 경험을 가진 전문가입니다. 다양한 국가에서 ODA 사업을 기획하고 실행한 경험이 있습니다.\n\n' + areaList + '\n\n위와 같은 분야에서 도움을 드릴 수 있습니다.' + ideaText + '\n이 내용을 바탕으로 ' + intro.perspective + ' 관점에서 도움을 드리겠습니다. 더 구체적인 질문이나 논의하고 싶은 부분이 있으시면 자유롭게 말씀해주세요.';
+}
+
 function ExpertAvatar({ expert, active }: { expert: Expert; active: boolean }) {
   const bgColors: Record<string, string> = {
     field: 'bg-blue-500',
@@ -138,10 +169,10 @@ export default function ExpertsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F2] flex flex-col">
+    <div className="h-screen bg-[#F7F8F2] flex flex-col overflow-hidden">
       <StepHeader />
 
-      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 grid grid-cols-[60px_1fr] gap-4" style={{ height: 'calc(100vh - 56px)' }}>
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 grid grid-cols-[60px_1fr] gap-4 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Expert sidebar */}
         <div className="flex flex-col items-center gap-3 pt-2">
           {experts.map((expert) => (
@@ -215,11 +246,12 @@ export default function ExpertsPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {messages.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-3xl mb-3">👋</div>
-                <p className="text-sm text-gray-500 font-medium">{activeExpert?.title}입니다.</p>
-                <p className="text-xs text-gray-400 mt-1">위 질문 가이드를 참고하거나 자유롭게 질문해주세요.</p>
+            {/* 인트로 메시지 — 항상 첫 번째로 표시 */}
+            {activeExpert && (
+              <div className="flex justify-start">
+                <div className="max-w-[75%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed bg-gray-100 text-gray-800 whitespace-pre-line">
+                  {getIntroMessage(activeExpert, ideation?.idea)}
+                </div>
               </div>
             )}
             {messages.map((msg) => (

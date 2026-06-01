@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText, isApiKeyConfigured } from '@/lib/api/anthropic';
+import { streamText, isOpenAIConfigured } from '@/lib/api/openai';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       ? `프로젝트 정보: 분야=${projectContext.field}, 국가=${projectContext.country}, 사업명=${projectContext.title || '미지정'}`
       : '';
 
-    if (!isApiKeyConfigured()) {
+    if (!isOpenAIConfigured()) {
       const encoder = new TextEncoder();
       const mock = `[데모 모드] API 키를 .env.local에 입력하시면 "${sectionTitle}" 섹션에 대한 실제 AI 검토를 받으실 수 있습니다.\n\n지금은 내용을 자유롭게 작성하고 다음 단계로 진행해 보세요.`;
       const mockStream = new ReadableStream({
