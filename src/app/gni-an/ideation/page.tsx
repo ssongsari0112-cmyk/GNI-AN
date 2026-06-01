@@ -450,7 +450,7 @@ export default function IdeationPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
                 <span>세부 지역 <span className="text-gray-400 font-normal text-xs">(직접 입력)</span></span>
-                <span className="text-xs text-gray-400">{form.subRegion.length}/50자</span>
+                <span className="text-xs text-gray-400">{(form.subRegion || '').length}/50자</span>
               </label>
               <input type="text" value={form.subRegion} onChange={(e) => setForm({ ...form, subRegion: e.target.value })} maxLength={50}
                 placeholder="예: 하노이 인근 농촌지역"
