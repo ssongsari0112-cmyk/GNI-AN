@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, X, Send, Loader2, Bot, User, Trash2 } from 'lucide-react';
+import { MarkdownText } from './MarkdownText';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -165,13 +166,16 @@ export function ChatBot() {
                   )}
                 </div>
                 <div
-                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
                     msg.role === 'user'
                       ? 'bg-[#8AA81E] text-white rounded-tr-sm'
                       : 'bg-white border border-[#D9E6B7] text-gray-700 rounded-tl-sm'
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === 'assistant'
+                    ? <MarkdownText content={msg.content} />
+                    : <span className="whitespace-pre-wrap">{msg.content}</span>
+                  }
                   {msg.role === 'assistant' && streaming && i === messages.length - 1 && (
                     <span className="inline-block w-1 h-3.5 ml-0.5 bg-[#8AA81E] animate-pulse rounded-sm align-text-bottom" />
                   )}

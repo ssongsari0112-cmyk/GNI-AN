@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { useProjectStore } from '@/lib/store/projectStore';
 import type { IdeationData } from '@/types';
 import { AlertCircle, Search, X, MapPin, Sparkles, Send, Loader2, Bot, User, Pencil } from 'lucide-react';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 
 /* ─── 상수 ─────────────────────────────────────────────── */
 const FIELDS = ['교육', '보건', '농업/식량', '식수/위생', '거버넌스', '환경/기후', '경제/소득', '젠더', '도시/주거', '인도적지원', '직업훈련', '기타'];
@@ -300,8 +301,11 @@ function AiAssistant({ formContext }: { formContext: string }) {
             <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${msg.role === 'user' ? 'bg-[#8AA81E]' : 'bg-[#EEF5D6]'}`}>
               {msg.role === 'user' ? <User size={11} className="text-white" /> : <Bot size={11} className="text-[#8AA81E]" />}
             </div>
-            <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-[#8AA81E] text-white rounded-tr-sm' : 'bg-gray-50 border border-gray-100 text-gray-700 rounded-tl-sm'}`}>
-              {msg.content}
+            <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs ${msg.role === 'user' ? 'bg-[#8AA81E] text-white rounded-tr-sm' : 'bg-gray-50 border border-gray-100 text-gray-700 rounded-tl-sm'}`}>
+              {msg.role === 'assistant'
+                ? <MarkdownText content={msg.content} />
+                : <span className="whitespace-pre-wrap">{msg.content}</span>
+              }
               {msg.role === 'assistant' && streaming && i === messages.length - 1 && (
                 <span className="inline-block w-1 h-3 ml-0.5 bg-[#8AA81E] animate-pulse rounded-sm align-text-bottom" />
               )}

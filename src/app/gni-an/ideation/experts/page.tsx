@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { useProjectStore } from '@/lib/store/projectStore';
 import type { Expert, ChatMessage, ExpertSession } from '@/types';
 import { Check, ChevronDown, ChevronUp, Send, CheckCircle2, ArrowRight } from 'lucide-react';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import { clsx } from 'clsx';
 
 const EXPERT_INTROS: Record<string, { years: string; areas: string[]; perspective: string }> = {
@@ -246,29 +247,33 @@ export default function ExpertsPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {/* 인트로 메시지 — 항상 첫 번째로 표시 */}
+            {/* 인트로 메시지 */}
             {activeExpert && (
               <div className="flex justify-start">
-                <div className="max-w-[75%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed bg-gray-100 text-gray-800 whitespace-pre-line">
-                  {getIntroMessage(activeExpert, ideation?.idea)}
+                <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm bg-gray-100 text-gray-800">
+                  <MarkdownText content={getIntroMessage(activeExpert, ideation?.idea)} />
                 </div>
               </div>
             )}
             {messages.map((msg) => (
               <div key={msg.id} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div className={clsx(
-                  'max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+                  'max-w-[80%] rounded-2xl px-4 py-3 text-sm',
                   msg.role === 'user'
                     ? 'bg-[#8AA81E] text-white rounded-tr-sm'
                     : 'bg-gray-100 text-gray-800 rounded-tl-sm'
                 )}>
-                  {msg.content || (streaming && msg.role === 'assistant' ? (
+                  {msg.content ? (
+                    msg.role === 'assistant'
+                      ? <MarkdownText content={msg.content} />
+                      : <span>{msg.content}</span>
+                  ) : (streaming && msg.role === 'assistant' ? (
                     <span className="flex gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" />
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.1s' }} />
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
                     </span>
-                  ) : '')}
+                  ) : null)}
                 </div>
               </div>
             ))}
