@@ -129,7 +129,7 @@ export function ChatBot() {
 
       {/* Chat window */}
       {open && (
-        <div className="fixed bottom-[72px] right-6 z-50 w-[360px] max-h-[560px] flex flex-col bg-white rounded-2xl shadow-2xl border border-[#D9E6B7] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-[72px] right-6 z-50 w-[480px] max-h-[620px] flex flex-col bg-white rounded-2xl shadow-2xl border border-[#D9E6B7] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-[#8AA81E]">
             <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export function ChatBot() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#F7F8F2]" style={{ minHeight: 0, maxHeight: 380 }}>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#F7F8F2]" style={{ minHeight: 0, maxHeight: 440 }}>
             {messages.map((msg, i) => (
               <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div

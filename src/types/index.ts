@@ -133,6 +133,60 @@ export interface ScheduleActivity {
   periods: boolean[]; // array indexed by month
 }
 
+export const SECTOR_OPTIONS = [
+  '식수/위생', '식량안보/영양', '보건', '주거', '생계 및 물자지원',
+  '교육', '보호', '재난위험경감', '갈등예방', '평화구축', '기타',
+] as const;
+
+export interface PersonInfo {
+  id: string;
+  role: string;
+  name: string;
+}
+
+export interface PartnerOrg {
+  id: string;
+  name: string;
+  relationship: string;
+  govRegistered: boolean;
+}
+
+export interface YearlyBudget {
+  year: number;
+  koica: number;
+  partner: number;
+}
+
+export interface ProjectDetails {
+  programType: 'HDP-N' | '긴급재난대응' | '';
+  programName: string;
+  documentNote: string;
+  sectors: string[];
+  directBeneficiaries: string;
+  indirectBeneficiaries: string;
+  domesticManagers: PersonInfo[];
+  fieldManagers: PersonInfo[];
+  fieldRepresentative: string;
+  partners: PartnerOrg[];
+  yearlyBudgets: YearlyBudget[];
+  coordinates: string;
+}
+
+export const DEFAULT_PROJECT_DETAILS: ProjectDetails = {
+  programType: '',
+  programName: '인도적지원 민관협력프로그램',
+  documentNote: '',
+  sectors: [],
+  directBeneficiaries: '',
+  indirectBeneficiaries: '',
+  domesticManagers: [],
+  fieldManagers: [],
+  fieldRepresentative: '',
+  partners: [],
+  yearlyBudgets: [],
+  coordinates: '',
+};
+
 export interface Insight {
   id: string;
   category: string;

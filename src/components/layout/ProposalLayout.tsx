@@ -1,12 +1,13 @@
 'use client';
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, MessageSquare, Send } from 'lucide-react';
+import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
 import type { SectionId } from '@/types';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 
 const STATUS_ICONS = {
   empty: '○',
@@ -19,12 +20,50 @@ const STATUS_COLORS = {
   completed: 'text-[#8AA81E]',
 };
 
+const SECTION_GROUPS: { id: string; title: string; subtitle: string; sectionIds: SectionId[]; labels?: string[] }[] = [
+  {
+    id: 'basis',
+    title: 'I-1. 사업 근거',
+    subtitle: '배경, 수요, 문제/목표 분석',
+    sectionIds: ['basis-background', 'basis-demand', 'basis-stakeholder', 'basis-problem', 'basis-objective', 'basis-self-assessment'],
+    labels: ['가', '나', '다', '라', '마', '바'],
+  },
+  {
+    id: 'plan',
+    title: 'I-2. 사업추진계획',
+    subtitle: 'PDM, 추진방안, 지속가능성 전략 등',
+    sectionIds: ['plan-pdm', 'plan-detail', 'plan-sustainability', 'plan-crosscutting'],
+    labels: ['가', '나', '다', '라'],
+  },
+  {
+    id: 'operation',
+    title: 'II. 사업운영',
+    subtitle: '조직, 예산, 회계',
+    sectionIds: ['operation-organization', 'operation-budget', 'operation-accounting'],
+  },
+  {
+    id: 'monitoring',
+    title: 'III. 모니터링 및 평가',
+    subtitle: 'M&E, 위험관리, 일정',
+    sectionIds: ['monitoring-plan', 'monitoring-endline', 'monitoring-risk', 'monitoring-schedule'],
+  },
+];
+
 function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { sections, getCompletedSectionsCount, getQualityLabel } = useProjectStore();
   const completed = getCompletedSectionsCount();
   const quality = getQualityLabel();
   const progress = Math.round((completed / 17) * 100);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ basis: true, plan: true, operation: false, monitoring: false });
+
+  useEffect(() => {
+    const activeGroup = SECTION_GROUPS.find((g) => g.sectionIds.some((id) => PROPOSAL_SECTIONS.find((s) => s.id === id)?.path === pathname));
+    if (activeGroup) {
+      setOpenGroups((prev) => (prev[activeGroup.id] ? prev : { ...prev, [activeGroup.id]: true }));
+    }
+  }, [pathname]);
 
   const qualityColors: Record<string, string> = {
     '완료': 'text-[#8AA81E]',
@@ -51,27 +90,56 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2">
-        {PROPOSAL_SECTIONS.map((section) => {
-          const sectionData = sections[section.id];
-          const status = sectionData?.status || 'empty';
-          const active = pathname === section.path;
+        {SECTION_GROUPS.map((group) => {
+          const groupSections = group.sectionIds.map((id) => PROPOSAL_SECTIONS.find((s) => s.id === id)!);
+          const groupCompleted = groupSections.filter((s) => sections[s.id]?.status === 'completed').length;
+          const groupProgress = Math.round((groupCompleted / groupSections.length) * 100);
+          const isOpen = openGroups[group.id];
 
           return (
-            <Link
-              key={section.id}
-              href={section.path}
-              onClick={onClose}
-              className={clsx(
-                'flex items-center gap-2 px-4 py-2 text-xs transition-colors hover:bg-[#F7F8F2]',
-                active ? 'bg-[#EEF5D6] text-[#5a7012] font-medium' : 'text-gray-600'
-              )}
-            >
-              <span className={clsx('text-base leading-none w-4 flex-shrink-0 text-center', STATUS_COLORS[status])}>
-                {STATUS_ICONS[status]}
-              </span>
-              <span className="text-gray-400 flex-shrink-0">{section.code}</span>
-              <span className="truncate">{section.title}</span>
-            </Link>
+            <div key={group.id}>
+              <button
+                onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !prev[group.id] }))}
+                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#F7F8F2] transition-colors text-left"
+              >
+                <ChevronDown size={13} className={clsx('flex-shrink-0 text-gray-400 transition-transform', !isOpen && '-rotate-90')} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[#111827] truncate">{group.title}</span>
+                    <span className="text-[10px] font-bold text-[#8AA81E] flex-shrink-0">{groupCompleted}/{groupSections.length}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 truncate">{group.subtitle}</p>
+                  <div className="h-1 bg-gray-100 rounded-full overflow-hidden mt-1">
+                    <div className="h-full bg-[#8AA81E] rounded-full transition-all duration-500" style={{ width: `${groupProgress}%` }} />
+                  </div>
+                </div>
+              </button>
+
+              {isOpen && groupSections.map((section, i) => {
+                const sectionData = sections[section.id];
+                const status = sectionData?.status || 'empty';
+                const active = pathname === section.path;
+                const label = group.labels?.[i] ?? section.code;
+
+                return (
+                  <Link
+                    key={section.id}
+                    href={section.path}
+                    onClick={onClose}
+                    className={clsx(
+                      'flex items-center gap-2 pl-9 pr-4 py-2 text-xs transition-colors hover:bg-[#F7F8F2]',
+                      active ? 'bg-[#EEF5D6] text-[#5a7012] font-medium' : 'text-gray-600'
+                    )}
+                  >
+                    <span className={clsx('text-base leading-none w-4 flex-shrink-0 text-center', STATUS_COLORS[status])}>
+                      {STATUS_ICONS[status]}
+                    </span>
+                    <span className="text-gray-400 flex-shrink-0">{label}.</span>
+                    <span className="truncate">{section.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>
@@ -190,12 +258,20 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 && (
+        {true && (
           <p className="text-xs text-gray-400 text-center py-4">위 빠른 질문을 클릭하거나<br />자유롭게 질문해주세요.</p>
         )}
         {messages.map((msg, i) => (
           <div key={i} className={clsx('text-xs rounded-xl px-3 py-2 leading-relaxed', msg.role === 'user' ? 'bg-[#8AA81E] text-white ml-4' : 'bg-gray-100 text-gray-700 mr-4')}>
-            {msg.content || (streaming && msg.role === 'assistant' ? '...' : '')}
+            {msg.content ? (
+              msg.role === 'assistant' ? (
+                <MarkdownText content={msg.content} className="text-xs" />
+              ) : (
+                <span className="whitespace-pre-wrap">{msg.content}</span>
+              )
+            ) : (
+              streaming && msg.role === 'assistant' ? '...' : ''
+            )}
           </div>
         ))}
       </div>
@@ -236,6 +312,11 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
   const { sections, project } = useProjectStore();
   const sectionData = sections[sectionId];
   const router = useRouter();
+  const pathname = usePathname();
+
+  const sectionIndex = PROPOSAL_SECTIONS.findIndex((s) => s.id === sectionId);
+  const prevSection = sectionIndex > 0 ? PROPOSAL_SECTIONS[sectionIndex - 1] : null;
+  const nextSection = sectionIndex >= 0 && sectionIndex < PROPOSAL_SECTIONS.length - 1 ? PROPOSAL_SECTIONS[sectionIndex + 1] : null;
 
   return (
     <div className="h-screen flex flex-col">
@@ -256,6 +337,28 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
           )}>
             {sectionData?.status === 'completed' ? '완료' : sectionData?.status === 'in-progress' ? '작성중' : '미작성'}
           </span>
+          <button
+            onClick={() => router.push(`/gni-an/create?returnTo=${encodeURIComponent(pathname)}`)}
+            title="프로젝트 정보 수정 (사업기간, 예산 등)"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
+          >
+            <Settings size={13} />프로젝트 정보 수정
+          </button>
+          <button
+            onClick={() => prevSection && router.push(prevSection.path)}
+            disabled={!prevSection}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={13} />이전
+          </button>
+          <button
+            onClick={() => nextSection && router.push(nextSection.path)}
+            disabled={!nextSection}
+            title="점검용 건너뛰기"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            건너뛰기<ChevronRight size={13} />
+          </button>
           <button
             onClick={() => router.push('/gni-an/proposal/pdf-preview')}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
@@ -291,7 +394,7 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
         </main>
 
         {/* AI assistant */}
-        <div className="hidden xl:flex w-64 flex-shrink-0 flex-col overflow-hidden">
+        <div className="hidden xl:flex w-80 flex-shrink-0 flex-col overflow-hidden">
           <AiAssistant sectionId={sectionId} sectionTitle={sectionTitle} />
         </div>
       </div>

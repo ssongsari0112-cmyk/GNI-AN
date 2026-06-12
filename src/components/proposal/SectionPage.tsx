@@ -6,6 +6,7 @@ import { Collapsible } from '@/components/ui/Collapsible';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import type { SectionId } from '@/types';
 import { Check } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -37,7 +38,7 @@ export function SectionPage({
   children,
   customContent = false,
 }: SectionPageProps) {
-  const { sections, updateSection, ideation, structure, expertSessions } = useProjectStore();
+  const { sections, updateSection, ideation, structure, expertSessions, experts } = useProjectStore();
   const sectionData = sections[sectionId];
   const content = sectionData?.content || '';
   const wordCount = content.replace(/<[^>]*>/g, '').length;
@@ -66,6 +67,14 @@ export function SectionPage({
   const relevantData = planningDataHints.length > 0
     ? planningData.filter((d) => planningDataHints.some((h) => d.label.includes(h)))
     : planningData;
+
+  const expertChats = expertSessions
+    .filter((s) => s.messages.length > 0)
+    .map((s) => ({
+      expert: experts.find((e) => e.id === s.expertId),
+      session: s,
+    }));
+  const totalMessages = expertChats.reduce((sum, c) => sum + c.session.messages.length, 0);
 
   return (
     <ProposalLayout sectionId={sectionId} sectionTitle={sectionTitle}>
@@ -103,6 +112,36 @@ export function SectionPage({
                   <div key={item.label} className="bg-[#F7F8F2] rounded-lg p-2.5">
                     <div className="text-xs font-semibold text-[#5a7012] mb-1">{item.label}</div>
                     <div className="text-xs text-gray-600">{item.content}</div>
+                  </div>
+                ))}
+              </div>
+            </Collapsible>
+          )}
+          {expertChats.length > 0 && (
+            <Collapsible trigger={`▶ AI 전문가와의 대화 기록 (${totalMessages}개 메시지)`}>
+              <div className="space-y-3 pb-2">
+                {expertChats.map(({ expert, session }) => (
+                  <div key={session.expertId} className="bg-[#F7F8F2] rounded-lg p-2.5">
+                    <div className="text-xs font-semibold text-[#5a7012] mb-1.5">
+                      {expert?.name || session.expertId} 상담 기록 ({session.messages.length}개 메시지)
+                    </div>
+                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1 bg-white rounded-lg border border-[#D9E6B7] p-2">
+                      {session.messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={clsx(
+                            'text-xs rounded-lg px-2.5 py-1.5 leading-relaxed',
+                            m.role === 'user' ? 'bg-[#8AA81E] text-white ml-4' : 'bg-gray-100 text-gray-700 mr-4'
+                          )}
+                        >
+                          {m.role === 'assistant' ? (
+                            <MarkdownText content={m.content} className="text-xs" />
+                          ) : (
+                            <span className="whitespace-pre-wrap">{m.content}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

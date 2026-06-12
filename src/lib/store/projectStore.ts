@@ -4,9 +4,9 @@ import { persist } from 'zustand/middleware';
 import type {
   Project, IdeationData, IdeationAnalysis, Expert, ExpertSession,
   StructureData, ProjectSummary, ProposalSection, ScheduleActivity, Insight,
-  SectionStatus, PROPOSAL_SECTIONS
+  SectionStatus, PROPOSAL_SECTIONS, ProjectDetails
 } from '@/types';
-import { PROPOSAL_SECTIONS as SECTIONS } from '@/types';
+import { PROPOSAL_SECTIONS as SECTIONS, DEFAULT_PROJECT_DETAILS } from '@/types';
 
 interface ProjectStore {
   project: Project | null;
@@ -20,8 +20,10 @@ interface ProjectStore {
   scheduleActivities: ScheduleActivity[];
   insights: Insight[];
   budgetFile: { name: string; size: number; uploadedAt: string } | null;
+  projectDetails: ProjectDetails;
 
   setProject: (p: Project) => void;
+  setProjectDetails: (d: ProjectDetails) => void;
   setIdeation: (d: IdeationData) => void;
   setIdeationAnalysis: (a: IdeationAnalysis) => void;
   setExperts: (e: Expert[]) => void;
@@ -70,8 +72,10 @@ export const useProjectStore = create<ProjectStore>()(
       scheduleActivities: [],
       insights: [],
       budgetFile: null,
+      projectDetails: DEFAULT_PROJECT_DETAILS,
 
       setProject: (p) => set({ project: p }),
+      setProjectDetails: (d) => set({ projectDetails: d }),
       setIdeation: (d) => set({ ideation: d }),
       setIdeationAnalysis: (a) => set({ ideationAnalysis: a }),
       setExperts: (e) => set({ experts: e }),
@@ -119,6 +123,7 @@ export const useProjectStore = create<ProjectStore>()(
           scheduleActivities: [],
           insights: [],
           budgetFile: null,
+          projectDetails: DEFAULT_PROJECT_DETAILS,
         }),
 
       getCompletedExpertsCount: () =>

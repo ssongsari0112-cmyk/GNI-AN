@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Sparkles, ArrowLeft, Check } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sparkles, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const STEPS = [
@@ -20,7 +20,11 @@ function getStepIndex(pathname: string): number {
 
 export function StepHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const currentStep = getStepIndex(pathname);
+  const prevStep = STEPS[currentStep - 1];
+  const nextStep = STEPS[currentStep + 1];
+  const nextPath = nextStep?.path || (currentStep === STEPS.length - 1 ? '/gni-an/create' : undefined);
 
   return (
     <header className="border-b border-[#D9E6B7] bg-white/90 backdrop-blur-sm sticky top-0 z-40">
@@ -69,6 +73,24 @@ export function StepHeader() {
               </div>
             );
           })}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => prevStep && router.push(prevStep.path)}
+            disabled={!prevStep}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowLeft size={13} />이전
+          </button>
+          <button
+            onClick={() => nextPath && router.push(nextPath)}
+            disabled={!nextPath}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="점검용 건너뛰기"
+          >
+            건너뛰기<ArrowRight size={13} />
+          </button>
         </div>
       </div>
     </header>

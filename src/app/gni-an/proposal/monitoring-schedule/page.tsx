@@ -29,6 +29,14 @@ function generateMonths(startDate: string, endDate: string): string[] {
   return months;
 }
 
+function groupMonthsByYear(months: string[]): { year: number; months: string[] }[] {
+  const groups: { year: number; months: string[] }[] = [];
+  for (let i = 0; i < months.length; i += 12) {
+    groups.push({ year: Math.floor(i / 12) + 1, months: months.slice(i, i + 12) });
+  }
+  return groups;
+}
+
 function initActivities(structure: ReturnType<typeof useProjectStore.getState>['structure']): ScheduleActivity[] {
   if (!structure) return [];
   const activities: ScheduleActivity[] = [];
@@ -47,6 +55,7 @@ function initActivities(structure: ReturnType<typeof useProjectStore.getState>['
 export default function MonitoringSchedulePage() {
   const { project, structure, scheduleActivities, setScheduleActivities, updateSection } = useProjectStore();
   const months = generateMonths(project?.startDate || '', project?.endDate || '');
+  const yearGroups = groupMonthsByYear(months);
 
   const [activities, setActivities] = useState<ScheduleActivity[]>(
     scheduleActivities.length > 0 ? scheduleActivities : initActivities(structure)
@@ -143,15 +152,22 @@ export default function MonitoringSchedulePage() {
           onMouseUp={() => setDragging(null)}
           onMouseLeave={() => setDragging(null)}
         >
-          <table className="w-max min-w-full border-collapse text-xs select-none">
+          <table className="w-max border-collapse text-xs select-none table-fixed">
             <thead>
               <tr className="bg-[#F7F8F2]">
-                <th className="w-8 border-b border-r border-gray-100 px-2 py-2 text-gray-400 font-normal">선택</th>
-                <th className="w-14 border-b border-r border-gray-100 px-2 py-2 text-gray-500 font-medium">코드</th>
-                <th className="w-48 border-b border-r border-gray-100 px-3 py-2 text-gray-500 font-medium text-left">활동명</th>
-                {months.map((m) => (
-                  <th key={m} className="w-9 border-b border-r border-gray-100 px-1 py-1 text-center text-gray-400 font-normal" style={{ writingMode: 'vertical-rl', minWidth: 36 }}>
-                    {m}
+                <th rowSpan={2} className="w-6 border-b border-r border-gray-100 px-1 py-2 text-gray-400 font-normal align-middle">선택</th>
+                <th rowSpan={2} className="w-10 border-b border-r border-gray-100 px-1 py-2 text-gray-500 font-medium align-middle">코드</th>
+                <th rowSpan={2} className="w-32 border-b border-r border-gray-100 px-2 py-2 text-gray-500 font-medium text-left align-middle">활동명</th>
+                {yearGroups.map((g) => (
+                  <th key={g.year} colSpan={g.months.length} className="border-b border-r border-gray-200 px-1 py-1.5 text-center text-[#5a7012] font-semibold bg-[#EEF5D6]">
+                    {g.year}차년도
+                  </th>
+                ))}
+              </tr>
+              <tr className="bg-[#F7F8F2]">
+                {months.map((m, idx) => (
+                  <th key={m} className="w-5 border-b border-r border-gray-100 px-0 py-1 text-center text-gray-400 font-normal" style={{ minWidth: 18 }} title={m}>
+                    {(idx % 12) + 1}
                   </th>
                 ))}
               </tr>
@@ -159,11 +175,11 @@ export default function MonitoringSchedulePage() {
             <tbody>
               {activities.map((act) => (
                 <tr key={act.id} className="hover:bg-[#F7F8F2]">
-                  <td className="border-b border-r border-gray-100 px-2 py-1 text-center">
+                  <td className="border-b border-r border-gray-100 px-1 py-1 text-center">
                     <input type="checkbox" className="accent-[#8AA81E]" />
                   </td>
-                  <td className="border-b border-r border-gray-100 px-2 py-1 text-gray-400">{act.code}</td>
-                  <td className="border-b border-r border-gray-100 px-3 py-1 text-gray-700 max-w-xs">
+                  <td className="border-b border-r border-gray-100 px-1 py-1 text-gray-400 text-center">{act.code}</td>
+                  <td className="border-b border-r border-gray-100 px-2 py-1 text-gray-700">
                     <div className="truncate">{act.name}</div>
                   </td>
                   {months.map((_, idx) => (

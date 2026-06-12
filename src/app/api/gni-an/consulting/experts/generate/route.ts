@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FIELD_EXPERT_QUESTION_GUIDES } from '@/lib/prompts';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
         title: `${field} 분야 전문가`,
         avatar: 'F',
         status: 'pending',
-        questionGuide: [
+        questionGuide: FIELD_EXPERT_QUESTION_GUIDES[field] || [
           `이 사업에서 해결하려는 핵심 ${field} 문제를 어떻게 정의하면 좋을까요?`,
           '주요 이해관계자와 협력 전략은 어떻게 구성해야 하나요?',
           '성과를 측정할 때 어떤 산출·성과 지표가 적절한가요?',

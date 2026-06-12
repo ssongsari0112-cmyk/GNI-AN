@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { streamText, isOpenAIConfigured } from '@/lib/api/openai';
+import { FIELD_EXPERT_PROMPTS } from '@/lib/prompts';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,23 +26,36 @@ SMART 지표 설계, 기초선 조사, 데이터 수집 방법, 모니터링 체
 OECD DAC 평가 기준과 국제 표준 지표 프레임워크를 활용한 실용적인 답변을 제공하세요.`,
     };
 
-    const systemPrompt = systemPrompts[expertType] || systemPrompts.field;
-    const contextPrompt = `${systemPrompt}
+    const fieldExpertPrompt = expertType === 'field' ? FIELD_EXPERT_PROMPTS[ideation?.field] : undefined;
 
-사업 맥락:
+    const businessContext = `사업 맥락:
 - 분야: ${ideation?.field || '미지정'}
 - 국가: ${ideation?.country || '미지정'}
 - 아이디어: ${ideation?.idea || '미지정'}
-- 핵심 문제: ${analysis?.coreProblem || '분석 중'}
+- 핵심 문제: ${analysis?.coreProblem || '분석 중'}`;
+
+    const koreanOnlyNote = '[중요] 반드시 순수한 한국어(한글)로만 답변하세요. 한자, 중국어, 일본어 문자를 절대 사용하지 마세요. 숫자와 영문 약어(NGO, KOICA 등)는 허용됩니다.';
+
+    let contextPrompt: string;
+    if (fieldExpertPrompt) {
+      contextPrompt = `${fieldExpertPrompt}\n\n${businessContext}\n\n${koreanOnlyNote}`;
+    } else {
+      const systemPrompt = systemPrompts[expertType] || systemPrompts.field;
+      contextPrompt = `${systemPrompt}
+
+${businessContext}
 
 [답변 원칙]
+- 답변의 맨 앞에서 핵심 결론이나 답을 먼저 제시하세요(두괄식)
 - 최소 300자 이상, 실질적인 내용을 충분히 담아 답변하세요
 - 단순 나열보다는 이유와 근거를 함께 설명하세요
 - 제안서에 바로 활용할 수 있는 구체적인 표현, 수치, 사례를 포함하세요
+- 항목으로 정리할 수 있는 내용은 목록(- )을 적극 활용해 가독성을 높이세요
 - 마크다운 형식 사용: **볼드**로 핵심 강조, 목록(- )으로 항목 정리, ## 소제목으로 구분
 - 필요하면 '예시:', '참고:' 등으로 실제 사례나 수치를 제시하세요
 
-[중요] 반드시 순수한 한국어(한글)로만 답변하세요. 한자, 중국어, 일본어 문자를 절대 사용하지 마세요. 숫자와 영문 약어(NGO, KOICA 등)는 허용됩니다.`;
+${koreanOnlyNote}`;
+    }
 
     if (!isOpenAIConfigured()) {
       const encoder = new TextEncoder();

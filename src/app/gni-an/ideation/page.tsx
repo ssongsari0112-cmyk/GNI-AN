@@ -9,7 +9,7 @@ import { AlertCircle, Search, X, MapPin, Sparkles, Send, Loader2, Bot, User, Pen
 import { MarkdownText } from '@/components/ui/MarkdownText';
 
 /* ─── 상수 ─────────────────────────────────────────────── */
-const FIELDS = ['교육', '보건', '농업/식량', '식수/위생', '거버넌스', '환경/기후', '경제/소득', '젠더', '도시/주거', '인도적지원', '직업훈련', '기타'];
+const FIELDS = ['교육', '보건', '지역개발', '인도적지원'];
 
 type Region = '전체' | '아시아' | '아프리카' | '중남미' | '중동' | 'CIS' | '오세아니아';
 
@@ -84,20 +84,20 @@ const REGIONS: Region[] = ['전체', '아시아', '아프리카', '중남미', '
 
 const IDEA_EXAMPLES = [
   {
-    label: '교육 / 캄보디아',
-    text: '캄보디아 농촌 지역 아동의 교육 기회 불평등 문제를 해결하기 위해 교사 역량 강화 프로그램과 학교 인프라 개선을 통한 초등교육 접근성 향상 사업을 추진하고자 합니다. 특히 여아의 취학률 제고와 학습 지속률 향상을 핵심 목표로 설정하고 있습니다.',
+    label: '교육',
+    text: '농촌 지역 아동의 교육 기회 불평등 문제를 해결하기 위해 교사 역량 강화 프로그램과 학교 인프라 개선을 통한 초등교육 접근성 향상 사업을 추진하고자 합니다. 특히 여아의 취학률 제고와 학습 지속률 향상을 핵심 목표로 설정하고 있습니다.',
   },
   {
-    label: '지역개발 / 에티오피아',
-    text: '에티오피아 남부 농촌 지역의 만성적 식량 불안 문제를 해결하기 위해 기후 적응형 농업 기술 보급, 농민 역량 강화, 시장 접근성 향상을 통한 소농 가구의 식량 안보 및 소득 증대 사업을 추진하고자 합니다. 지역사회 주도의 지속가능한 농업 생태계 구축을 목표로 합니다.',
+    label: '지역개발',
+    text: '남부 농촌 지역의 만성적 식량 불안 문제를 해결하기 위해 기후 적응형 농업 기술 보급, 농민 역량 강화, 시장 접근성 향상을 통한 소농 가구의 식량 안보 및 소득 증대 사업을 추진하고자 합니다. 지역사회 주도의 지속가능한 농업 생태계 구축을 목표로 합니다.',
   },
   {
-    label: '인도적지원 / 미얀마',
-    text: '미얀마 분쟁 영향 지역 내 국내 실향민(IDP)의 긴급 인도적 수요를 충족하기 위해 식량, 식수·위생, 보건 서비스를 통합 제공하고, 중장기적으로는 지역사회 회복력 강화를 위한 생계 지원 및 심리사회적 지원(PSS) 프로그램을 연계 운영하고자 합니다.',
+    label: '인도적지원',
+    text: '분쟁 영향 지역 내 국내 실향민(IDP)의 긴급 인도적 수요를 충족하기 위해 식량, 식수·위생, 보건 서비스를 통합 제공하고, 중장기적으로는 지역사회 회복력 강화를 위한 생계 지원 및 심리사회적 지원(PSS) 프로그램을 연계 운영하고자 합니다.',
   },
 ];
 
-const QUICK_PROMPTS = ['핵심 문제 분석해줘', '현지 파트너 관점 점검', '비슷한 사례 예시', '보완할 부분은?'];
+const QUICK_PROMPTS = ['핵심 문제 분석해줘', '현지 파트너 관점 점검', '비슷한 사례 예시', '보완할 부분은?', '세부지역 추천'];
 
 /* ─── 숫자 포맷 ─────────────────────────────────────────── */
 function formatNumber(val: string): string {
@@ -316,7 +316,7 @@ function AiAssistant({ formContext }: { formContext: string }) {
       </div>
 
       {/* 빠른 프롬프트 */}
-      {messages.length <= 1 && (
+      {true && (
         <div className="px-3 pb-2 flex flex-wrap gap-1.5">
           {QUICK_PROMPTS.map((q) => (
             <button key={q} onClick={() => send(q)}
@@ -550,7 +550,7 @@ export default function IdeationPage() {
         </div>{/* /좌측 스크롤 영역 */}
 
         {/* ── 우측: AI 작성 도우미 (고정) ── */}
-        <div className="w-[300px] flex-shrink-0 border-l border-[#D9E6B7] flex flex-col bg-white">
+        <div className="w-[380px] flex-shrink-0 border-l border-[#D9E6B7] flex flex-col bg-white">
           <AiAssistant formContext={formContext} />
         </div>
 
