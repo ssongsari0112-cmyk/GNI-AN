@@ -499,16 +499,6 @@ export default function PDFPreviewPage() {
           </div>
         )}
 
-        {/* ── PDM ── */}
-        {structure?.pdm && structure.pdm.length > 0 && (
-          <div className="doc-page" style={{ background: 'white', padding: '60px 60px', pageBreakAfter: 'always' }}>
-            <h2 style={{ fontSize: '14pt', fontWeight: 700, borderBottom: '1px solid #111', paddingBottom: 6, marginBottom: 12 }}>
-              사업 논리 모형 (Project Design Matrix)
-            </h2>
-            <PDMTable pdm={structure.pdm} />
-          </div>
-        )}
-
         {/* ── 17개 섹션 ── */}
         {PROPOSAL_SECTIONS.map((section) => {
           const isSchedule = section.id === 'monitoring-schedule';
