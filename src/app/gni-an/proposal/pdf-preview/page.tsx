@@ -493,8 +493,12 @@ export default function PDFPreviewPage() {
         {/* ── 17개 섹션 ── */}
         {PROPOSAL_SECTIONS.map((section) => {
           const isSchedule = section.id === 'monitoring-schedule';
+          const isPdm = section.id === 'plan-pdm';
           const content = sections[section.id]?.content;
-          if (isSchedule ? scheduleActivities.length === 0 : !content) return null;
+
+          // plan-pdm은 structure.pdm 데이터로 표 렌더링 (content는 JSON 원문이라 무시)
+          const hasPdm = isPdm && structure?.pdm && structure.pdm.length > 0;
+          if (isSchedule ? scheduleActivities.length === 0 : isPdm ? !hasPdm : !content) return null;
 
           const part = getPart(section.code);
           const showPartHeader = part.key !== lastPartKey;
@@ -517,6 +521,8 @@ export default function PDFPreviewPage() {
                     startDate={project?.startDate || ''}
                     endDate={project?.endDate || ''}
                   />
+                ) : isPdm ? (
+                  <PDMTable pdm={structure!.pdm} />
                 ) : (
                   <div
                     className="doc-content"

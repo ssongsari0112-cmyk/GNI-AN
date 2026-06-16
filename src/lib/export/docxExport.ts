@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalMergeType, VerticalAlign } from 'docx';
 import { htmlToDocxElements } from './htmlToDocx';
 import { PROPOSAL_SECTIONS, SECTOR_OPTIONS } from '@/types';
 import type { Project, IdeationData, ProjectSummary, StructureData, ProposalSection, ScheduleActivity, ProjectDetails, PDMRow } from '@/types';
@@ -152,22 +152,66 @@ function buildTeamPartnerTable({ project, details }: { project: Project | null; 
 
 function buildScheduleTable(activities: ScheduleActivity[], startDate: string, endDate: string): Table {
   const months = generateMonths(startDate, endDate);
+  const yearGroups = groupMonthsByYear(months);
 
-  const rows: TableRow[] = [
-    new TableRow({
-      children: ['코드', '활동명', '수행 기간'].map((h) =>
-        new TableCell({ shading: { fill: LABEL_FILL }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: h, bold: true })] })] })
+  const codeWidth = 6;
+  const nameWidth = 16;
+  const monthWidth = months.length > 0 ? (100 - codeWidth - nameWidth) / months.length : 0;
+
+  const headerRow1 = new TableRow({
+    children: [
+      new TableCell({
+        verticalMerge: VerticalMergeType.RESTART,
+        verticalAlign: VerticalAlign.CENTER,
+        shading: { fill: LABEL_FILL },
+        width: { size: codeWidth, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '코드', bold: true })] })],
+      }),
+      new TableCell({
+        verticalMerge: VerticalMergeType.RESTART,
+        verticalAlign: VerticalAlign.CENTER,
+        shading: { fill: LABEL_FILL },
+        width: { size: nameWidth, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ children: [new TextRun({ text: '활동명', bold: true })] })],
+      }),
+      ...yearGroups.map((g) =>
+        new TableCell({
+          columnSpan: g.months.length,
+          shading: { fill: LABEL_FILL },
+          width: { size: monthWidth * g.months.length, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${g.year}차년도`, bold: true })] })],
+        })
       ),
-    }),
-  ];
+    ],
+  });
+
+  const headerRow2 = new TableRow({
+    children: [
+      new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [new Paragraph('')] }),
+      new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [new Paragraph('')] }),
+      ...months.map((_, idx) =>
+        new TableCell({
+          shading: { fill: 'F5F5F5' },
+          width: { size: monthWidth, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, text: String((idx % 12) + 1) })],
+        })
+      ),
+    ],
+  });
+
+  const rows: TableRow[] = [headerRow1, headerRow2];
 
   activities.forEach((act) => {
-    const activeMonths = months.filter((_, idx) => act.periods?.[idx]);
     rows.push(new TableRow({
       children: [
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, text: act.code })] }),
         new TableCell({ children: [new Paragraph(act.name)] }),
-        new TableCell({ children: [new Paragraph(activeMonths.length > 0 ? activeMonths.join(', ') : '-')] }),
+        ...months.map((_, idx) =>
+          new TableCell({
+            shading: act.periods?.[idx] ? { fill: '8AA81E' } : undefined,
+            children: [new Paragraph('')],
+          })
+        ),
       ],
     }));
   });
@@ -186,6 +230,14 @@ function generateMonths(startDate: string, endDate: string): string[] {
     cur.setMonth(cur.getMonth() + 1);
   }
   return months;
+}
+
+function groupMonthsByYear(months: string[]): { year: number; months: string[] }[] {
+  const groups: { year: number; months: string[] }[] = [];
+  for (let i = 0; i < months.length; i += 12) {
+    groups.push({ year: Math.floor(i / 12) + 1, months: months.slice(i, i + 12) });
+  }
+  return groups;
 }
 
 function summaryBlock(label: string, value?: string): Paragraph[] {
