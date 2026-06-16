@@ -2,7 +2,8 @@ import OpenAI from 'openai';
 
 let client: OpenAI | null = null;
 
-const MODEL = 'gpt-4o-mini'; // 저비용 고성능
+const MODEL_FAST = 'gpt-4o-mini';
+const MODEL_PRO  = 'gpt-4o';
 
 export function isOpenAIConfigured(): boolean {
   const key = process.env.OPENAI_API_KEY;
@@ -25,9 +26,20 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 export async function generateText(messages: Msg[], systemPrompt: string): Promise<string> {
   const openai = getClient();
   const response = await openai.chat.completions.create({
-    model: MODEL,
+    model: MODEL_FAST,
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
     max_tokens: 4096,
+  });
+  return response.choices[0]?.message?.content ?? '';
+}
+
+export async function generateTextPro(messages: Msg[], systemPrompt: string): Promise<string> {
+  const openai = getClient();
+  const response = await openai.chat.completions.create({
+    model: MODEL_PRO,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    max_tokens: 8192,
+    temperature: 0.65,
   });
   return response.choices[0]?.message?.content ?? '';
 }
@@ -39,7 +51,7 @@ export async function streamText(
 ): Promise<string> {
   const openai = getClient();
   const stream = await openai.chat.completions.create({
-    model: MODEL,
+    model: MODEL_FAST,
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
     max_tokens: 2048,
     stream: true,

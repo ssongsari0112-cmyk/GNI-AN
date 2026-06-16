@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import type { PDMRow } from '@/types';
 
 function uid() {
@@ -8,7 +9,6 @@ function uid() {
 function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
   const country = ctx.country || '대상 국가';
   const field = ctx.field || '농촌개발';
-  const problem = ctx.coreProblem || '기후변화 취약성 및 식량 불안정';
 
   return [
     {
@@ -172,11 +172,78 @@ function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
   ];
 }
 
+function parsePdmJson(raw: string): PDMRow[] | null {
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as PDMRow[];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const PDM_SYSTEM = `당신은 KOICA 제안서 PDM(Project Design Matrix) 전문가입니다.
+주어진 프로젝트 정보를 바탕으로 완성된 PDM JSON을 생성하세요.
+
+[출력 형식 — 절대 규칙]
+- 순수 JSON 배열만 출력. 코드블록, 설명 문장 없음.
+- 최상위 배열: Impact 1개 항목만 (children에 Purpose 포함)
+- PDMRow 구조:
+  { "id": "...", "level": "impact|purpose|outcome|output|activity", "code": "...", "narrative": "...", "indicators": "...", "verificationMeans": "...", "assumptions": "...", "children": [...] }
+- children 필드: Purpose→Outcome 2개, Outcome→Output 2개, Output→Activity 2~3개
+- id: 8자리 임의 영문숫자 문자열
+- 지표(indicators): SMART 형식, 기초선→목표치 포함 (예: "21% → 60% (3차년도)")
+- 여성 참여 지표 반드시 포함
+- narrative: 구체적 활동/성과 서술, 추상적 표현 금지`;
+
 export async function POST(req: NextRequest) {
   try {
     const { projectContext } = await req.json();
-    const pdm = buildFallbackPdm(projectContext || {});
-    return NextResponse.json({ success: true, pdm });
+    const ctx = (projectContext || {}) as Record<string, string>;
+
+    if (!isOpenAIConfigured()) {
+      return NextResponse.json({ success: true, pdm: buildFallbackPdm(ctx) });
+    }
+
+    const contextLines = [
+      ctx.title          && `사업명: ${ctx.title}`,
+      ctx.country        && `대상 국가: ${ctx.country}`,
+      ctx.region         && `대상 지역: ${ctx.region}`,
+      ctx.field          && `사업 분야: ${ctx.field}`,
+      ctx.coreProblem    && `핵심 문제: ${ctx.coreProblem}`,
+      ctx.targetBeneficiaries && `수혜 대상: ${ctx.targetBeneficiaries}`,
+      ctx.interventionApproach && `개입 접근법: ${ctx.interventionApproach}`,
+      ctx.expectedOutcomes && `기대 성과: ${ctx.expectedOutcomes}`,
+    ].filter(Boolean).join('\n');
+
+    const prompt = `아래 프로젝트 정보로 KOICA 제안서 PDM JSON을 생성하세요.
+
+[프로젝트 정보]
+${contextLines}
+
+[PDM 구조 요구사항]
+- Impact 1개: 장기 사회 변화 목표 (SDG 연계, 5년 후 측정)
+- Purpose 1개: 사업 목적 (3차년도 달성 목표)
+- Outcome 2개: 성과 영역 (각 Purpose의 하위)
+- Output 2개 per Outcome: 산출물 (구체적 산출물, 숫자 포함)
+- Activity 2~3개 per Output: 실행 활동 (현장 실행 가능한 구체적 활동)
+
+각 항목에 indicators(SMART 지표), verificationMeans(검증수단), assumptions(가정) 필수 포함.
+JSON 배열만 출력:`;
+
+    const raw = await generateTextPro(
+      [{ role: 'user', content: prompt }],
+      PDM_SYSTEM
+    );
+
+    const pdm = parsePdmJson(raw);
+    if (pdm) {
+      const withIds = JSON.parse(JSON.stringify(pdm).replace(/"id"\s*:\s*""/g, `"id":"${uid()}"`));
+      return NextResponse.json({ success: true, pdm: withIds });
+    }
+
+    return NextResponse.json({ success: true, pdm: buildFallbackPdm(ctx) });
   } catch (error) {
     const message = error instanceof Error ? error.message : '오류가 발생했습니다.';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

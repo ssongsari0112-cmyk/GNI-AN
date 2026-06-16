@@ -64,15 +64,49 @@ export function SectionPage({
     draftAttempted.current = true;
     setIsGenerating(true);
 
+    const expertInsights = expertSessions
+      .filter((s) => s.messages.length > 0)
+      .flatMap((s) => {
+        const expert = experts.find((e) => e.id === s.expertId);
+        return s.messages
+          .filter((m) => m.role === 'assistant')
+          .slice(-3)
+          .map((m) => `[${expert?.name || s.expertId}] ${m.content.slice(0, 300)}`);
+      })
+      .join('\n');
+
     const projectContext = {
       title: project?.title || '',
       country: project?.country || ideation?.country || '',
       region: project?.region || ideation?.subRegion || '',
       field: project?.field || ideation?.field || '',
+      organization: '굿네이버스',
+      duration: (project as unknown as Record<string, string> | null)?.duration
+        || ((project as unknown as Record<string, string> | null)?.startDate && (project as unknown as Record<string, string> | null)?.endDate
+          ? `${(project as unknown as Record<string, string>).startDate} ~ ${(project as unknown as Record<string, string>).endDate}`
+          : '3년'),
+      budget: (project as unknown as Record<string, string> | null)?.budget || '',
       idea: ideation?.idea || '',
       coreProblem: ideationAnalysis?.coreProblem || structure?.problemTree?.coreProblem || '',
       targetBeneficiaries: ideationAnalysis?.targetBeneficiaries || ideation?.beneficiaries || '',
       interventionApproach: ideationAnalysis?.interventionApproach || '',
+      expectedOutcomes: ideationAnalysis?.expectedOutcomes || '',
+      problemTree: structure?.problemTree
+        ? JSON.stringify({
+            coreProblem: structure.problemTree.coreProblem,
+            causes: structure.problemTree.causes,
+            effects: structure.problemTree.effects,
+          })
+        : '',
+      objectiveTree: structure?.objectiveTree
+        ? JSON.stringify({
+            impact: structure.objectiveTree.impact,
+            purpose: structure.objectiveTree.purpose,
+            outcomes: structure.objectiveTree.outcomes,
+          })
+        : '',
+      expertInsights,
+      projectSummary: (ideationAnalysis as unknown as Record<string, string> | null)?.summary || ideation?.idea?.slice(0, 500) || '',
     };
 
     fetch('/api/gni-an/proposal/section/draft', {
