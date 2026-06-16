@@ -6,64 +6,65 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/* ── 작성 지침 기반 4계층 Fallback PDM ──────────────────────────── */
 function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
   const country = ctx.country || '대상 국가';
-  const field = ctx.field || '농촌개발';
+  const field = ctx.field || '교육';
 
   return [
     {
       id: uid(),
       level: 'impact',
       code: 'Impact',
-      narrative: `${country} 농촌 지역 주민의 식량 안보 향상 및 빈곤 감소`,
-      indicators: `대상 지역 식량 불안정 가구 비율 62% → 35% 이하 (사업 종료 후 5년)\n농촌 가구 평균 소득 40% 이상 향상`,
-      verificationMeans: '정부 통계, 수혜자 가구 조사',
-      assumptions: '거시경제 안정 및 국가 식량 정책 지속',
-    },
-    {
-      id: uid(),
-      level: 'purpose',
-      code: 'Purpose',
-      narrative: `기후변화 대응 농업 기술 보급을 통한 ${field} 분야 역량 강화`,
-      indicators: `직접 수혜 농민의 70% 이상이 기후적응 기술 습득 및 현장 적용 (사업 종료 시)\n여성 농민 참여율 50% 이상`,
-      verificationMeans: '기술 이수율 조사, 현장 적용 관찰 기록',
-      assumptions: '지방정부의 정책 지지 유지\n극단적 기후 사건 미발생',
+      narrative: `${country} 취약계층 아동·청소년의 삶의 질 향상 및 지속가능한 발전 기반 구축`,
+      indicators: `사업 지역 아동 빈곤율 45% → 28% 이하 (사업 종료 후 5년 기준, SDG 1.2)\n여성 포함 수혜 가구 중 70% 이상 생활 수준 개선 확인`,
+      verificationMeans: '정부 통계청 가구 조사, UNICEF 아동빈곤 모니터링 보고서',
+      assumptions: '국가 거시경제 안정 및 사회보호 정책 지속\n사업 지역 내 주요 분쟁·재난 미발생',
       children: [
         {
           id: uid(),
           level: 'outcome',
           code: 'Outcome 1',
-          narrative: '기후변화 대응 농민 역량 강화',
-          indicators: `기후적응 기술 훈련 이수율 70% (3차년도)\n시범 포장 수확량 전통 농법 대비 30% 증가`,
-          verificationMeans: '교육 이수 명단, 수확량 기록부',
-          assumptions: '농민의 교육 참여 의지 유지',
+          narrative: `${field} 서비스 접근성 및 품질 향상`,
+          indicators: `서비스 이용 수혜자 수: 0명 → 3,500명 이상 (3차년도)\n여성 참여율 50% 이상 유지`,
+          verificationMeans: '사업 등록 대장, 반기 모니터링 보고서, 기초선·종료선 조사',
+          assumptions: '지방정부의 운영 협조 유지\n수혜자의 지속적 참여 의지',
           children: [
             {
               id: uid(),
               level: 'output',
               code: 'Output 1.1',
-              narrative: '기후적응 농업 기술 훈련 프로그램 운영 완료',
-              indicators: `훈련 총 회수 26회 (3년 합계)\n훈련 참여 농민 3,000명 (남성 1,350 / 여성 1,650)`,
-              verificationMeans: '훈련 참석자 명단, 사진 기록',
-              assumptions: '훈련 시설 및 강사 확보 가능',
+              narrative: `${field} 시설 개·보수 및 기자재 지원 완료`,
+              indicators: `시설 개·보수 완료 개소: 5개소 (1차년도 3개소, 2차년도 2개소)\n기자재 지원 수혜자 2,000명 이상`,
+              verificationMeans: '공사 완료 증빙, 기자재 배분 목록, 현장 사진',
+              assumptions: '건설 자재 수급 안정\n토지 사용권 확보',
               children: [
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 1.1.1',
-                  narrative: '기후변화 대응 농업 기술 교육 실시 (농민학교 FFS 방식)',
-                  indicators: '연간 교육 횟수 달성',
-                  verificationMeans: '교육 보고서, 참석자 명단',
-                  assumptions: '농민 동원 협조',
+                  narrative: '기존 시설 상태 평가 및 개·보수 설계 수행',
+                  indicators: '5개소 평가 보고서 작성 완료 (1차년도 1분기)',
+                  verificationMeans: '시설 평가 보고서, 사진',
+                  assumptions: '현장 접근 가능성 확보',
                 },
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 1.1.2',
-                  narrative: '현장 시범 포장(Demo Plot) 운영 및 결과 공유 워크숍',
-                  indicators: '마을별 시범 포장 15개소 운영',
-                  verificationMeans: '현장 방문 기록, 워크숍 참석자 명단',
-                  assumptions: '토지 사용 허가 획득',
+                  narrative: '시설 개·보수 공사 시행 및 기자재 조달·배분',
+                  indicators: '공사 완료율 100% (2차년도 말 기준)',
+                  verificationMeans: '공사 완료 보고서, 기자재 배분 명단',
+                  assumptions: '시공업체 계약 이행',
+                },
+                {
+                  id: uid(),
+                  level: 'activity',
+                  code: 'A 1.1.3',
+                  narrative: '시설 준공 후 운영 관리 역량 교육 실시 (담당자 대상)',
+                  indicators: '시설 운영 담당자 교육 이수율 100%',
+                  verificationMeans: '교육 이수 명단, 사후 역량 평가 결과',
+                  assumptions: '담당자 교육 참여 의지',
                 },
               ],
             },
@@ -71,28 +72,28 @@ function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
               id: uid(),
               level: 'output',
               code: 'Output 1.2',
-              narrative: '기후적응 고수확 품종 현장 시험 재배 완료',
-              indicators: `시험 재배 품종 3종 이상 선발\n시범 재배 농가 500가구 이상`,
-              verificationMeans: '품종 시험 결과 보고서, 수확량 기록',
-              assumptions: '국립 농업연구원(NARC) 협력 유지',
+              narrative: `${field} 프로그램 운영 및 전문 인력 역량 강화`,
+              indicators: `연간 프로그램 운영 횟수 48회 이상 (월 4회)\n전문 인력 역량 교육 이수율 90% 이상`,
+              verificationMeans: '프로그램 출석부, 역량 교육 이수 명단, 성과 평가 보고서',
+              assumptions: '전문 인력 이직률 30% 이하 유지',
               children: [
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 1.2.1',
-                  narrative: '기후적응 품종 선발 및 500가구 종자 보급',
-                  indicators: '500가구 종자 배포 완료',
-                  verificationMeans: '종자 배포 명단',
-                  assumptions: '종자 수급 안정',
+                  narrative: `${field} 전문 인력 대상 역량 강화 교육 실시 (연 2회)`,
+                  indicators: '교육 이수자 수: 연간 80명 이상 (남성 40%, 여성 60%)',
+                  verificationMeans: '교육 참석자 명단, 사전·사후 역량 평가',
+                  assumptions: '강사 수급 가능',
                 },
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 1.2.2',
-                  narrative: '현장 시험 재배 관리 및 데이터 수집',
-                  indicators: '수확량 데이터 500건 수집',
-                  verificationMeans: '수확 기록부',
-                  assumptions: '농민의 기록 협조',
+                  narrative: `${field} 서비스 프로그램 정기 운영 및 참여자 모니터링`,
+                  indicators: '참여자 월별 출석률 75% 이상',
+                  verificationMeans: '월별 출석부, 분기 모니터링 보고서',
+                  assumptions: '참여자의 지속 참여 의지 유지',
                 },
               ],
             },
@@ -102,37 +103,37 @@ function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
           id: uid(),
           level: 'outcome',
           code: 'Outcome 2',
-          narrative: '개선된 종자·투입재 공급 체계 구축',
-          indicators: `공인 개량 종자 접근 농가 비율 21% → 60% (3차년도)\n마을 종자 은행 5개소 자립 운영`,
-          verificationMeans: '종자 은행 운영 기록, 농가 조사',
-          assumptions: '지방정부의 제도화 지원',
+          narrative: '지역사회 인식 개선 및 수혜 대상 자립 역량 강화',
+          indicators: `보호자·지역사회 인식 개선율 70% 이상 (종료선 조사)\n자립 기술 보유 수혜자 비율 60% → 85%`,
+          verificationMeans: '기초선·종료선 인식 조사, 자립 역량 평가 기록',
+          assumptions: '지역사회 지도자 협력 유지\n문화적 저항 최소화',
           children: [
             {
               id: uid(),
               level: 'output',
               code: 'Output 2.1',
-              narrative: '마을 종자 은행 5개소 설립 및 운영 체계 구축',
-              indicators: `1차년도 종료 시 5개소 설립 완료\n운영위원회 구성(여성 위원 50% 이상)`,
-              verificationMeans: '종자 은행 등록 서류, 운영위원회 명단',
-              assumptions: '마을 토지·공간 확보',
+              narrative: '지역사회 대상 인식 개선 캠페인 운영 완료',
+              indicators: `캠페인 참여자 수: 5,000명 이상 (3년 합계)\n보호자 참여율 60% 이상`,
+              verificationMeans: '캠페인 참여자 명단, 사진 기록, 설문 결과',
+              assumptions: '지역 언론·기관 협조 가능',
               children: [
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 2.1.1',
-                  narrative: '마을 종자 은행 시설 설치 및 초기 재고 확보',
-                  indicators: '5개소 설치 완료, 마을당 250kg 초기 재고',
-                  verificationMeans: '시설 사진, 재고 기록부',
-                  assumptions: '건설 자재 수급 가능',
+                  narrative: '인식 개선 교육 자료(리플렛, 영상) 현지어 제작 및 배포',
+                  indicators: '교육 자료 5종 제작, 3,000부 배포',
+                  verificationMeans: '인쇄물 사진, 배포 명단',
+                  assumptions: '현지어 번역 전문가 확보',
                 },
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 2.1.2',
-                  narrative: '운영위원회 구성 및 종자 관리 역량 교육',
-                  indicators: '운영위원 교육 이수 100%',
-                  verificationMeans: '교육 이수 명단',
-                  assumptions: '위원회 구성원 참여 의지',
+                  narrative: '보호자 및 지역사회 지도자 대상 정기 설명회 개최 (연 4회)',
+                  indicators: '회당 참여자 수 100명 이상',
+                  verificationMeans: '설명회 참석자 명단, 회의록',
+                  assumptions: '참여 동원 협조 체계 구축',
                 },
               ],
             },
@@ -140,28 +141,68 @@ function buildFallbackPdm(ctx: Record<string, string>): PDMRow[] {
               id: uid(),
               level: 'output',
               code: 'Output 2.2',
-              narrative: '지방정부 연계 종자 품질 관리 체계 구축',
-              indicators: `지방 종자품질관리소(SQCC) MOU 체결\n2차년도까지 종자 품질 검사 시스템 도입`,
-              verificationMeans: 'MOU 문서, 검사 기록',
-              assumptions: '지방 SQCC의 협력 의지',
+              narrative: '수혜 대상 자립 역량 강화 프로그램 운영',
+              indicators: `프로그램 이수자 수: 1,200명 이상 (3년 합계)\n이수자 자립 활동 연계율 50% 이상`,
+              verificationMeans: '이수 명단, 자립 활동 연계 확인서',
+              assumptions: '연계 기관·자원 확보 가능',
               children: [
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 2.2.1',
-                  narrative: '지방 SQCC와 협력 약정 체결 및 역할 분담 확정',
-                  indicators: 'MOU 체결 (1차년도 내)',
-                  verificationMeans: 'MOU 문서',
-                  assumptions: '정부 기관 협력 승인',
+                  narrative: '직업 기초 훈련 및 생계 기술 교육 실시 (연 3회 과정)',
+                  indicators: '과정 이수율 80% 이상',
+                  verificationMeans: '교육 이수 명단, 기술 평가 결과',
+                  assumptions: '훈련 장소 및 강사 확보',
                 },
                 {
                   id: uid(),
                   level: 'activity',
                   code: 'A 2.2.2',
-                  narrative: '종자 품질 관리 매뉴얼 현지어 번역 및 보급',
-                  indicators: '매뉴얼 500부 배포',
-                  verificationMeans: '배포 명단',
-                  assumptions: '번역 전문가 확보',
+                  narrative: '자립 활동 연계 지원: 취업·창업·저축 그룹 연결',
+                  indicators: '취업·창업 연계자 수: 연 200명 이상',
+                  verificationMeans: '연계 확인서, 추적 조사 기록',
+                  assumptions: '시장 수요 및 연계 기관 협력',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: uid(),
+          level: 'outcome',
+          code: 'Outcome 3',
+          narrative: '사업 운영 지속가능성 기반 구축 (지방정부·민간 협력 체계)',
+          indicators: `지방정부 예산 편성 확약 획득 (2차년도 말)\n파트너 기관 자체 운영 역량 평가 점수 70점 이상 (5점 척도 → 100점 환산)`,
+          verificationMeans: 'MOU 협약서, 지방정부 예산 문서, 역량 평가 보고서',
+          assumptions: '정책 담당자 교체 시 인수인계 체계 유지\n지방 예산 삭감 없음',
+          children: [
+            {
+              id: uid(),
+              level: 'output',
+              code: 'Output 3.1',
+              narrative: '지방정부·유관기관과 MOU 체결 및 협력 네트워크 구축',
+              indicators: 'MOU 체결 기관 수: 3개소 이상 (1차년도)\n분기별 정례 협의체 운영 12회 이상',
+              verificationMeans: 'MOU 협약서, 협의체 회의록',
+              assumptions: '지방정부 협력 의지 지속',
+              children: [
+                {
+                  id: uid(),
+                  level: 'activity',
+                  code: 'A 3.1.1',
+                  narrative: '지방정부 및 유관기관 대상 사업 설명 및 협력 협의 진행',
+                  indicators: '협의 완료 기관 3개소 이상 (1차년도 1분기)',
+                  verificationMeans: '협의 회의록, 서명 문서',
+                  assumptions: '담당 공무원 협조',
+                },
+                {
+                  id: uid(),
+                  level: 'activity',
+                  code: 'A 3.1.2',
+                  narrative: '정례 협의체 운영 및 사업 결과 공유 워크숍 개최',
+                  indicators: '연 4회 워크숍 개최',
+                  verificationMeans: '워크숍 참석자 명단, 결과 보고서',
+                  assumptions: '기관별 담당자 참여 가능',
                 },
               ],
             },
@@ -183,53 +224,88 @@ function parsePdmJson(raw: string): PDMRow[] | null {
   }
 }
 
+/* ── System Prompt ────────────────────────────────── */
 const PDM_SYSTEM = `당신은 KOICA 제안서 PDM(Project Design Matrix) 전문가입니다.
-주어진 프로젝트 정보를 바탕으로 완성된 PDM JSON을 생성하세요.
+주어진 프로젝트 정보를 바탕으로 작성 지침에 맞는 4계층 PDM JSON을 생성하세요.
+
+[계층 구조 — 절대 규칙]
+- Impact: 최상위 배열에 1개만 (children에 Outcome 직접 포함, Purpose 계층 없음)
+- Outcome: Impact의 children에 2~3개 (Impact 달성을 위한 핵심 성과)
+- Output: 각 Outcome의 children에 1~3개 (Outcome 달성을 위한 직접 산출물)
+- Activity: 각 Output의 children에 1~4개 (실행 가능한 구체 활동)
+
+[번호 체계]
+- Impact: code = "Impact"
+- Outcome: code = "Outcome 1", "Outcome 2", "Outcome 3"
+- Output: code = "Output 1.1", "Output 1.2", "Output 2.1" ...
+- Activity: code = "A 1.1.1", "A 1.1.2", "A 2.1.1" ...
+
+[각 수준 작성 기준]
+- Impact: 수혜자 수준의 장기적 변화, SDG 번호 연계, 5년 후 측정 가능한 방향성
+- Outcome: 사업 종료 시 기대 핵심 변화, 서로 중복되지 않게 구분 (접근성/품질/역량 등)
+- Output: 시설·교육·제도·캠페인 등 사업이 직접 생산하는 구체적 결과물
+- Activity: 누가 무엇을 어떻게 수행하는지 명시, 추상적 표현 금지 (예: "교사 대상 역량 교육 실시")
+
+[지표(indicators) 설계]
+- SMART 형식, 기초선→목표치 포함 (예: "21% → 60% (3차년도)")
+- 여성 참여 지표 반드시 포함
+- Activity 지표는 완료 기준으로 작성
+
+[검증수단(verificationMeans)] 실제 사업 문서 유형으로 작성:
+출석부, 평가 보고서, 배포 명단, MOU, 현장 사진, 통계청 자료 등
+
+[가정(assumptions)] 외부 조건: 정부 협력, 정책 유지, 참여율, 자연재해 미발생 등
 
 [출력 형식 — 절대 규칙]
-- 순수 JSON 배열만 출력. 코드블록, 설명 문장 없음.
-- 최상위 배열: Impact 1개 항목만 (children에 Purpose 포함)
-- PDMRow 구조:
-  { "id": "...", "level": "impact|purpose|outcome|output|activity", "code": "...", "narrative": "...", "indicators": "...", "verificationMeans": "...", "assumptions": "...", "children": [...] }
-- children 필드: Purpose→Outcome 2개, Outcome→Output 2개, Output→Activity 2~3개
-- id: 8자리 임의 영문숫자 문자열
-- 지표(indicators): SMART 형식, 기초선→목표치 포함 (예: "21% → 60% (3차년도)")
-- 여성 참여 지표 반드시 포함
-- narrative: 구체적 활동/성과 서술, 추상적 표현 금지`;
+순수 JSON 배열만 출력. 코드블록·설명 문장 없음.
+PDMRow: { "id": "8자리영문숫자", "level": "impact|outcome|output|activity", "code": "...", "narrative": "...", "indicators": "...", "verificationMeans": "...", "assumptions": "...", "children": [...] }`;
 
 export async function POST(req: NextRequest) {
   try {
-    const { projectContext } = await req.json();
+    const { projectContext, projectType, pmcSourceDocs } = await req.json();
     const ctx = (projectContext || {}) as Record<string, string>;
 
     if (!isOpenAIConfigured()) {
       return NextResponse.json({ success: true, pdm: buildFallbackPdm(ctx) });
     }
 
+    // PMC 소스 텍스트 빌드
+    let pmcSection = '';
+    if (projectType === 'pmc' && Array.isArray(pmcSourceDocs) && pmcSourceDocs.length > 0) {
+      const combined = pmcSourceDocs
+        .map((doc: { fileName: string; extractedText: string }) =>
+          `--- ${doc.fileName} ---\n${doc.extractedText.slice(0, 6000)}`
+        )
+        .join('\n\n')
+        .slice(0, 12000);
+      pmcSection = `\n[KOICA 집행계획(안) 원문 — PDM은 이 내용을 기반으로 작성하고 구조·지표를 최대한 반영하세요]\n${combined}\n[/집행계획(안)]\n`;
+    }
+
     const contextLines = [
-      ctx.title          && `사업명: ${ctx.title}`,
-      ctx.country        && `대상 국가: ${ctx.country}`,
-      ctx.region         && `대상 지역: ${ctx.region}`,
-      ctx.field          && `사업 분야: ${ctx.field}`,
-      ctx.coreProblem    && `핵심 문제: ${ctx.coreProblem}`,
+      ctx.title               && `사업명: ${ctx.title}`,
+      ctx.country             && `대상 국가: ${ctx.country}`,
+      ctx.region              && `대상 지역: ${ctx.region}`,
+      ctx.field               && `사업 분야: ${ctx.field}`,
+      ctx.coreProblem         && `핵심 문제: ${ctx.coreProblem}`,
       ctx.targetBeneficiaries && `수혜 대상: ${ctx.targetBeneficiaries}`,
       ctx.interventionApproach && `개입 접근법: ${ctx.interventionApproach}`,
-      ctx.expectedOutcomes && `기대 성과: ${ctx.expectedOutcomes}`,
+      ctx.expectedOutcomes    && `기대 성과: ${ctx.expectedOutcomes}`,
+      ctx.problemTree         && `문제나무 요약: ${ctx.problemTree.slice(0, 600)}`,
+      ctx.objectiveTree       && `목표나무 요약: ${ctx.objectiveTree.slice(0, 600)}`,
     ].filter(Boolean).join('\n');
 
-    const prompt = `아래 프로젝트 정보로 KOICA 제안서 PDM JSON을 생성하세요.
+    const prompt = `아래 프로젝트 정보로 KOICA 제안서 4계층 PDM JSON을 생성하세요.${pmcSection}
 
 [프로젝트 정보]
 ${contextLines}
 
-[PDM 구조 요구사항]
-- Impact 1개: 장기 사회 변화 목표 (SDG 연계, 5년 후 측정)
-- Purpose 1개: 사업 목적 (3차년도 달성 목표)
-- Outcome 2개: 성과 영역 (각 Purpose의 하위)
-- Output 2개 per Outcome: 산출물 (구체적 산출물, 숫자 포함)
-- Activity 2~3개 per Output: 실행 활동 (현장 실행 가능한 구체적 활동)
+[PDM 구성 요구사항]
+- Impact 1개: 장기 사회 변화 (SDG 연계, 5년 후 측정)
+- Outcome 2~3개: 서로 구분되는 핵심 성과 (Impact의 직접 children, Purpose 없음)
+- Output 각 Outcome당 1~3개: 구체적 산출물, 수치 포함
+- Activity 각 Output당 2~4개: 실행 가능한 구체 활동 (추상 표현 금지)
 
-각 항목에 indicators(SMART 지표), verificationMeans(검증수단), assumptions(가정) 필수 포함.
+문제나무·목표나무와 정확히 대응되도록 작성하세요.
 JSON 배열만 출력:`;
 
     const raw = await generateTextPro(
@@ -239,7 +315,10 @@ JSON 배열만 출력:`;
 
     const pdm = parsePdmJson(raw);
     if (pdm) {
-      const withIds = JSON.parse(JSON.stringify(pdm).replace(/"id"\s*:\s*""/g, `"id":"${uid()}"`));
+      // id 빈칸 보완
+      const withIds = JSON.parse(
+        JSON.stringify(pdm).replace(/"id"\s*:\s*""/g, `"id":"${uid()}"`)
+      );
       return NextResponse.json({ success: true, pdm: withIds });
     }
 

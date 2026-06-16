@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS, SECTOR_OPTIONS } from '@/types';
-import type { ScheduleActivity, ProjectDetails } from '@/types';
+import type { ScheduleActivity, ProjectDetails, ProblemTreeNode } from '@/types';
 import { ArrowLeft, Download, FileText, FileType } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { exportPagesToPdf } from '@/lib/export/pdfExport';
@@ -20,40 +20,68 @@ function getPart(code: string) {
   return PARTS.find((p) => p.codes.includes(code)) || PARTS[0];
 }
 
-/* ── PDM 테이블 ───────────────────────────────── */
+/* ── PDM 테이블 (4열, 4계층: Impact→Outcome→Output→Activity) ── */
 function PDMTable({ pdm }: { pdm: any[] }) {
-  const flatRows: { indent: number; level: string; code: string; narrative: string; indicators: string; verificationMeans: string; assumptions: string }[] = [];
+  type FlatRow = { indent: number; level: string; code: string; narrative: string; indicators: string; verificationMeans: string; assumptions: string };
+  const flatRows: FlatRow[] = [];
 
   function flatten(row: any, indent = 0) {
-    flatRows.push({ indent, level: row.level, code: row.code, narrative: row.narrative, indicators: row.indicators || '', verificationMeans: row.verificationMeans || '', assumptions: row.assumptions || '' });
+    flatRows.push({
+      indent, level: row.level, code: row.code || '',
+      narrative: row.narrative || '',
+      indicators: row.indicators || '',
+      verificationMeans: row.verificationMeans || '',
+      assumptions: row.assumptions || '',
+    });
     if (row.children?.length) row.children.forEach((c: any) => flatten(c, indent + 1));
   }
   pdm.forEach((r) => flatten(r));
 
-  const levelLabels: Record<string, string> = { impact: '영향(Impact)', purpose: '사업목적(Purpose)', outcome: '산출물(Outputs)', output: '개발활동(Activities)' };
-  const levelBg: Record<string, string> = { impact: '#f3e8ff', purpose: '#dbeafe', outcome: '#dcfce7', output: '#fef9c3' };
+  const levelMeta: Record<string, { label: string; bg: string; textColor: string; bold: boolean }> = {
+    impact:   { label: '영향 (Impact)',        bg: '#ede9fe', textColor: '#4c1d95', bold: true },
+    purpose:  { label: '사업목적 (Purpose)',   bg: '#dbeafe', textColor: '#1e3a8a', bold: true },
+    outcome:  { label: '성과 (Outcome)',        bg: '#dcfce7', textColor: '#14532d', bold: true },
+    output:   { label: '산출물 (Output)',       bg: '#fef9c3', textColor: '#713f12', bold: false },
+    activity: { label: '활동 (Activity)',       bg: '#f9fafb', textColor: '#374151', bold: false },
+  };
+
+  const th: CSSProperties = { border: '1px solid #888', padding: '6px 8px', textAlign: 'center', fontWeight: 700, fontSize: '8pt', background: '#EEF5D6', color: '#3b5c0a' };
+  const td = (bg: string, color: string, pl = 8): CSSProperties => ({ border: '1px solid #ccc', padding: `5px ${pl}px`, background: bg, color, verticalAlign: 'top', lineHeight: 1.6, fontSize: '8pt' });
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8.5pt', marginTop: '8px' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8pt', marginTop: 4, tableLayout: 'fixed' }}>
+      <colgroup>
+        <col style={{ width: '32%' }} />
+        <col style={{ width: '24%' }} />
+        <col style={{ width: '22%' }} />
+        <col style={{ width: '22%' }} />
+      </colgroup>
       <thead>
-        <tr style={{ background: '#f0f0f0' }}>
-          {['프로젝트 요약', '내용', '지표', '지표 증명 수단', '가정'].map((h) => (
-            <th key={h} style={{ border: '1px solid #999', padding: '5px 7px', textAlign: 'center', fontWeight: 700, fontSize: '8pt' }}>{h}</th>
-          ))}
+        <tr>
+          <th style={th}>프로젝트 요약</th>
+          <th style={th}>지표 (OVI)</th>
+          <th style={th}>지표 증명수단 (MoV)</th>
+          <th style={th}>가정 (Assumptions)</th>
         </tr>
       </thead>
       <tbody>
-        {flatRows.map((row, i) => (
-          <tr key={i} style={{ background: levelBg[row.level] || '#fff' }}>
-            <td style={{ border: '1px solid #bbb', padding: '5px 7px', fontWeight: 600, whiteSpace: 'nowrap', paddingLeft: `${7 + row.indent * 12}px`, fontSize: '8pt' }}>
-              {levelLabels[row.level] || row.level}
-            </td>
-            <td style={{ border: '1px solid #bbb', padding: '5px 7px' }}>{row.narrative}</td>
-            <td style={{ border: '1px solid #bbb', padding: '5px 7px' }}>{row.indicators}</td>
-            <td style={{ border: '1px solid #bbb', padding: '5px 7px' }}>{row.verificationMeans}</td>
-            <td style={{ border: '1px solid #bbb', padding: '5px 7px' }}>{row.assumptions}</td>
-          </tr>
-        ))}
+        {flatRows.map((row, i) => {
+          const m = levelMeta[row.level] || { label: row.level, bg: '#fff', textColor: '#222', bold: false };
+          const pl = 8 + row.indent * 10;
+          return (
+            <tr key={i}>
+              <td style={{ ...td(m.bg, m.textColor, pl), fontWeight: m.bold ? 700 : 400 }}>
+                <div style={{ fontSize: '7pt', fontWeight: 700, color: m.textColor, marginBottom: 2, opacity: 0.75 }}>
+                  {m.label}{row.code ? ` · ${row.code}` : ''}
+                </div>
+                <div>{row.narrative}</div>
+              </td>
+              <td style={td(m.bg, '#333')}>{row.indicators}</td>
+              <td style={td(m.bg, '#444')}>{row.verificationMeans}</td>
+              <td style={td(m.bg, '#444')}>{row.assumptions}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -323,6 +351,169 @@ function TeamPartnerTable({ project, details }: { project: any; details: Project
   );
 }
 
+/* ── 문제나무 PDF 렌더러 ─────────────────────── */
+type ProblemTreeData = { effects: ProblemTreeNode[]; coreProblem: string; causes: ProblemTreeNode[] };
+
+function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
+  const nodeStyle = (bg: string, border: string, color: string, sz = 7.5): CSSProperties => ({
+    background: bg, border: `1.5px solid ${border}`, borderRadius: 6,
+    padding: '5px 8px', color, fontSize: sz, lineHeight: 1.4,
+    textAlign: 'center', wordBreak: 'keep-all', minWidth: 70, maxWidth: 120,
+  });
+
+  const vLine = (color: string, h = 14): CSSProperties => ({
+    width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0,
+  });
+
+  const hBar = (color: string, w: string | number): CSSProperties => ({
+    height: 2, background: color, width: w, margin: '0 auto',
+  });
+
+  function CauseCol({ node, depth }: { node: ProblemTreeNode; depth: number }) {
+    const colors = [
+      { bg: '#fffbeb', bd: '#fcd34d', tx: '#92400e' },
+      { bg: '#fff7ed', bd: '#fed7aa', tx: '#78350f' },
+      { bg: '#fff7ed', bd: '#fdba74', tx: '#9a3412' },
+    ];
+    const c = colors[Math.min(depth, 2)];
+    const hasChildren = node.children && node.children.length > 0;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={nodeStyle(c.bg, c.bd, c.tx, 7.5 - depth * 0.5)}>{node.text}</div>
+        {hasChildren && (
+          <>
+            <div style={vLine('#d97706', 10)} />
+            {node.children!.length > 1 && <div style={hBar('#d97706', `${(node.children!.length - 1) * 55}%`)} />}
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+              {node.children!.map(child => (
+                <div key={child.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  {node.children!.length > 1 && <div style={vLine('#d97706', 10)} />}
+                  <CauseCol node={child} depth={depth + 1} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const labelStyle: CSSProperties = { fontSize: 6.5, color: '#888', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+
+  return (
+    <div style={{ padding: '4px 0 8px', fontFamily: 'sans-serif' }}>
+      {/* Effects */}
+      <div style={labelStyle}>↑ 결과 / 영향 (Effects)</div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+        {tree.effects.map(e => (
+          <div key={e.id} style={nodeStyle('#fef2f2', '#fca5a5', '#991b1b')}>{e.text}</div>
+        ))}
+      </div>
+
+      {/* Connector: effects → core */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0' }}>
+        {tree.effects.length > 1 && <div style={hBar('#9ca3af', `${Math.min(tree.effects.length * 32, 70)}%`)} />}
+        <div style={vLine('#9ca3af', 16)} />
+      </div>
+
+      {/* Core Problem */}
+      <div style={labelStyle}>핵심 문제 (Core Problem)</div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ ...nodeStyle('#EEF5D6', '#8AA81E', '#3b5c0a', 9), maxWidth: 220, fontWeight: 700, padding: '8px 14px' }}>
+          {tree.coreProblem}
+        </div>
+      </div>
+
+      {/* Connector: core → causes */}
+      {tree.causes.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0' }}>
+          <div style={vLine('#9ca3af', 16)} />
+          {tree.causes.length > 1 && <div style={hBar('#9ca3af', `${Math.min(tree.causes.length * 28, 80)}%`)} />}
+        </div>
+      )}
+
+      {/* Causes */}
+      <div style={labelStyle}>↓ 직접 원인 (Immediate Causes)</div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {tree.causes.map(cause => (
+          <div key={cause.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {tree.causes.length > 1 && <div style={vLine('#d97706', 10)} />}
+            <CauseCol node={cause} depth={0} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── 목표나무 PDF 렌더러 ─────────────────────── */
+type ObjectiveTreeData = { impact: string; purpose: string; outcomes: { id: string; text: string; children?: { id: string; text: string }[] }[] };
+
+function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
+  const ns = (bg: string, bd: string, color: string, sz = 7.5, maxW = 130): CSSProperties => ({
+    background: bg, border: `1.5px solid ${bd}`, borderRadius: 6,
+    padding: '5px 8px', color, fontSize: sz, lineHeight: 1.4,
+    textAlign: 'center', wordBreak: 'keep-all', maxWidth: maxW, minWidth: 70,
+  });
+  const vl = (color: string, h = 12): CSSProperties => ({ width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0 });
+  const hb = (color: string, w: string | number): CSSProperties => ({ height: 2, background: color, width: w, margin: '0 auto' });
+  const lbl: CSSProperties = { fontSize: 6.5, color: '#888', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+
+  return (
+    <div style={{ fontFamily: 'sans-serif', padding: '4px 0 8px' }}>
+      {/* Impact */}
+      <div style={lbl}>영향 (Impact / Goal)</div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ ...ns('#f5f3ff', '#c4b5fd', '#4c1d95', 9, 220), fontWeight: 700, padding: '8px 14px' }}>{tree.impact}</div>
+      </div>
+
+      {/* Impact → Purpose */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={vl('#9ca3af', 16)} />
+      </div>
+
+      {/* Purpose */}
+      <div style={lbl}>사업목적 (Purpose / Outcome)</div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ ...ns('#eff6ff', '#93c5fd', '#1e3a8a', 8.5, 200), fontWeight: 600, padding: '7px 12px' }}>{tree.purpose}</div>
+      </div>
+
+      {/* Purpose → Outcomes */}
+      {tree.outcomes.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={vl('#9ca3af', 16)} />
+          {tree.outcomes.length > 1 && <div style={hb('#9ca3af', `${Math.min(tree.outcomes.length * 28, 80)}%`)} />}
+        </div>
+      )}
+
+      {/* Outcomes + Outputs */}
+      <div style={lbl}>성과 (Outcomes) → 산출물 (Outputs)</div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {tree.outcomes.map(oc => (
+          <div key={oc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {tree.outcomes.length > 1 && <div style={vl('#6b7280', 10)} />}
+            <div style={ns('#EEF5D6', '#8AA81E', '#3b5c0a', 7.5)}>{oc.text}</div>
+            {oc.children && oc.children.length > 0 && (
+              <>
+                <div style={vl('#10b981', 10)} />
+                {oc.children.length > 1 && <div style={hb('#10b981', `${(oc.children.length - 1) * 50}%`)} />}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                  {oc.children.map(out => (
+                    <div key={out.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {oc.children!.length > 1 && <div style={vl('#10b981', 10)} />}
+                      <div style={ns('#ecfdf5', '#6ee7b7', '#065f46', 6.5, 110)}>{out.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── 메인 ─────────────────────────────────────── */
 export default function PDFPreviewPage() {
   const router = useRouter();
@@ -503,11 +694,19 @@ export default function PDFPreviewPage() {
         {PROPOSAL_SECTIONS.map((section) => {
           const isSchedule = section.id === 'monitoring-schedule';
           const isPdm = section.id === 'plan-pdm';
+          const isProblemTree = section.id === 'basis-problem';
+          const isObjTree = section.id === 'basis-objective';
           const content = sections[section.id]?.content;
 
-          // plan-pdm은 structure.pdm 데이터로 표 렌더링 (content는 JSON 원문이라 무시)
           const hasPdm = isPdm && structure?.pdm && structure.pdm.length > 0;
-          if (isSchedule ? scheduleActivities.length === 0 : isPdm ? !hasPdm : !content) return null;
+          const hasProblemTree = isProblemTree && !!structure?.problemTree?.coreProblem;
+          const hasObjTree = isObjTree && !!(structure?.objectiveTree?.impact || structure?.objectiveTree?.purpose);
+
+          if (isSchedule) { if (scheduleActivities.length === 0) return null; }
+          else if (isPdm) { if (!hasPdm) return null; }
+          else if (isProblemTree) { if (!hasProblemTree && !content) return null; }
+          else if (isObjTree) { if (!hasObjTree && !content) return null; }
+          else { if (!content) return null; }
 
           const part = getPart(section.code);
           const showPartHeader = part.key !== lastPartKey;
@@ -520,7 +719,15 @@ export default function PDFPreviewPage() {
                   <p style={{ fontSize: '11pt', fontWeight: 700 }}>{part.title}</p>
                 </div>
               )}
-              <div className="doc-page" style={{ background: 'white', padding: '48px 60px', pageBreakAfter: 'always' }}>
+              <div
+                className="doc-page"
+                style={{
+                  background: 'white',
+                  padding: '48px 60px',
+                  // PDM은 테이블이 길어 여러 A4에 이어질 수 있으므로 pageBreakAfter 제거
+                  pageBreakAfter: isPdm ? 'auto' : 'always',
+                }}
+              >
                 <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
                   {section.code}. {section.title}
                 </h3>
@@ -532,6 +739,34 @@ export default function PDFPreviewPage() {
                   />
                 ) : isPdm ? (
                   <PDMTable pdm={structure!.pdm} />
+                ) : isProblemTree ? (
+                  <>
+                    {hasProblemTree && (
+                      <>
+                        <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>문제나무 (Problem Tree)</p>
+                        <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
+                          <ProblemTreePdfView tree={structure!.problemTree!} />
+                        </div>
+                      </>
+                    )}
+                    {content && (
+                      <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
+                    )}
+                  </>
+                ) : isObjTree ? (
+                  <>
+                    {hasObjTree && (
+                      <>
+                        <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>목표나무 (Objective Tree)</p>
+                        <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
+                          <ObjectiveTreePdfView tree={structure!.objectiveTree!} />
+                        </div>
+                      </>
+                    )}
+                    {content && (
+                      <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
+                    )}
+                  </>
                 ) : (
                   <div
                     className="doc-content"

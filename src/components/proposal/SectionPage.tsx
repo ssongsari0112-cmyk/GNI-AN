@@ -51,6 +51,7 @@ export function SectionPage({
   const {
     sections, updateSection, updateSectionAiDraft,
     ideation, structure, expertSessions, experts, project, ideationAnalysis,
+    projectType, pmcSourceDocs,
   } = useProjectStore();
   const sectionData = sections[sectionId];
   const content = sectionData?.content || '';
@@ -121,7 +122,7 @@ export function SectionPage({
     fetch('/api/gni-an/proposal/section/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sectionId, projectContext }),
+      body: JSON.stringify({ sectionId, projectContext, projectType, pmcSourceDocs }),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -140,7 +141,7 @@ export function SectionPage({
     fetch('/api/gni-an/proposal/section/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sectionId, projectContext }),
+      body: JSON.stringify({ sectionId, projectContext, projectType, pmcSourceDocs }),
     })
       .then((r) => r.json())
       .then((data) => {

@@ -351,7 +351,7 @@ function AiAssistant({ formContext }: { formContext: string }) {
 /* ─── 메인 페이지 ────────────────────────────────────────── */
 export default function IdeationPage() {
   const router = useRouter();
-  const { setIdeation, setIdeationAnalysis, setExperts, ideation } = useProjectStore();
+  const { setIdeation, setIdeationAnalysis, setExperts, ideation, projectType, pmcSourceDocs } = useProjectStore();
 
   const saved = ideation;
   const [form, setForm] = useState<IdeationData>({
@@ -419,6 +419,16 @@ export default function IdeationPage() {
         {/* ── 좌측: 스크롤 가능한 폼 영역 ── */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 pb-0">
+            {projectType === 'pmc' && (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
+                  🏛 KOICA 과업 기반 PMC 모드
+                </span>
+                {pmcSourceDocs.length > 0 && (
+                  <span className="text-xs text-gray-400">{pmcSourceDocs.length}개 집행계획(안) 분석 완료 — AI 초안에 자동 반영됩니다</span>
+                )}
+              </div>
+            )}
             <h1 className="text-2xl font-bold text-[#111827] mb-1">사업 아이디어 입력</h1>
             <p className="text-gray-500 text-sm mb-5">기본 정보를 입력하면 AI가 분석하고 전문가 컨설팅을 준비합니다</p>
           </div>

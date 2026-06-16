@@ -8,6 +8,28 @@ import type {
 } from '@/types';
 import { PROPOSAL_SECTIONS as SECTIONS, DEFAULT_PROJECT_DETAILS } from '@/types';
 
+export interface PmcSourceDoc {
+  fileName: string;
+  extractedText: string;
+  numPages: number;
+  uploadedAt: string;
+  analyzed?: {
+    title?: string;
+    country?: string;
+    region?: string;
+    field?: string;
+    duration?: string;
+    budget?: string;
+    coreProblem?: string;
+    targetBeneficiaries?: string;
+    objectives?: string;
+    keyTasks?: string[];
+    pdmSummary?: string;
+    koicaRequirements?: string;
+    summary?: string;
+  };
+}
+
 interface ProjectStore {
   project: Project | null;
   ideation: IdeationData | null;
@@ -21,9 +43,13 @@ interface ProjectStore {
   insights: Insight[];
   budgetFile: { name: string; size: number; uploadedAt: string } | null;
   projectDetails: ProjectDetails;
+  projectType: 'civil-society' | 'pmc';
+  pmcSourceDocs: PmcSourceDoc[];
 
   setProject: (p: Project) => void;
   setProjectDetails: (d: ProjectDetails) => void;
+  setProjectType: (t: 'civil-society' | 'pmc') => void;
+  setPmcSourceDocs: (docs: PmcSourceDoc[]) => void;
   setIdeation: (d: IdeationData) => void;
   setIdeationAnalysis: (a: IdeationAnalysis) => void;
   setExperts: (e: Expert[]) => void;
@@ -74,9 +100,13 @@ export const useProjectStore = create<ProjectStore>()(
       insights: [],
       budgetFile: null,
       projectDetails: DEFAULT_PROJECT_DETAILS,
+      projectType: 'civil-society',
+      pmcSourceDocs: [],
 
       setProject: (p) => set({ project: p }),
       setProjectDetails: (d) => set({ projectDetails: d }),
+      setProjectType: (t) => set({ projectType: t }),
+      setPmcSourceDocs: (docs) => set({ pmcSourceDocs: docs }),
       setIdeation: (d) => set({ ideation: d }),
       setIdeationAnalysis: (a) => set({ ideationAnalysis: a }),
       setExperts: (e) => set({ experts: e }),
@@ -132,6 +162,8 @@ export const useProjectStore = create<ProjectStore>()(
           insights: [],
           budgetFile: null,
           projectDetails: DEFAULT_PROJECT_DETAILS,
+          projectType: 'civil-society',
+          pmcSourceDocs: [],
         }),
 
       getCompletedExpertsCount: () =>

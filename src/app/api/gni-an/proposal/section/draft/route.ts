@@ -34,6 +34,7 @@ const SYSTEM_PROMPT = `당신은 KOICA 시민사회협력사업 제안서 심사
 
 function formatContext(ctx: Record<string, string>): string {
   const lines = [
+    ctx.pmcSourceText  && `[KOICA 집행계획(안) 원문 발췌 — PMC 모드: 아래 내용을 제안서 작성의 기본 바탕으로 반드시 활용하세요]\n${ctx.pmcSourceText}\n[/KOICA 집행계획(안)]`,
     ctx.title          && `사업명: ${ctx.title}`,
     ctx.country        && `대상 국가: ${ctx.country}`,
     ctx.region         && `대상 지역: ${ctx.region}`,
@@ -246,42 +247,74 @@ HTML만 출력:`,
 [프로젝트 정보]
 ${formatContext(ctx)}
 
-"I-1 라. 문제분석" 섹션을 작성하세요.
-문제나무(Problem Tree) 분석을 텍스트로 구조화하여 "핵심 문제→직접 원인→근본 원인→영향" 논리를 완성하세요.
+위 정보와 문제나무(Problem Tree) 구조를 바탕으로 KOICA 제안서 "I-1 라. 문제분석" 서술 텍스트를 작성하세요.
+문제나무에 이미 제시된 내용만 서술하세요. 새로운 내용을 추가하지 마세요.
 
-[필수 포함 요소]
-① 문제 분석 개요 — 핵심 문제를 한 문장으로, 분석 방법론 설명
-② 핵심 문제 — 구체적 문제 정의, 규모 수치 (몇 명, 몇 %), 비교 지표
-③ 직접 원인 1 — 제목 + 하위 원인 2~3개, 각각 수치 근거
-④ 직접 원인 2 — 제목 + 하위 원인 2~3개, 각각 수치 근거
-⑤ 근본 원인 — 구조적·제도적 원인 (젠더불평등, 예산부족, 거버넌스 등)
-⑥ 문제의 결과 및 영향 — 해결 안 할 경우 2030년 예측 (IPCC, 세계은행 시나리오 인용)
+[출력 형식 — 반드시 엄수]
+각 항목은 반드시 아래 형식:
+<p><strong>1) 소제목</strong> ○ 서술 문단 (5~7문장)</p>
+<p><strong>2) 소제목</strong> ○ 서술 문단 (5~7문장)</p>
+... 최소 3개 항목, 최대 5개
 
-[작성 지시]
-- 직접 원인은 <ul><li>로 하위 원인 열거
-- 수치마다 (출처, 연도) 표기
-- 전체 6개 소단락
+[항목 구성 순서 — 이 구조로 작성]
+1) 핵심 문제 현황: 핵심 문제(coreProblem)의 규모·심각성, 수치(출처 포함), 피해 대상
+2) 직접 원인 — [원인명 1]: 첫 번째 직접 원인 및 그 세부 원인 서술
+3) 직접 원인 — [원인명 2]: 두 번째 직접 원인 및 그 세부 원인 서술
+4) (3개 이상 직접 원인 있을 경우) 직접 원인 — [원인명 3]: 서술
+5) 문제의 영향 및 결과: 문제나무 상단 결과(effects)와 방치 시 전망
+
+[필수 표현 — 전체에서 각각 최소 1회 사용]
+- 첫 번째 항목 도입부: "사업 지역 내 주요 이슈를 확인한 결과"
+- 첫 번째 항목 마무리: "~~ 문제가 확인됨"
+- 원인 서술: "~로 인해", "이로 인해 ~~ 발생", "주요 요인으로 작용"
+- 분석 결론: "~로 확인됨"
+
+[품질 기준]
+- 각 문단 5~7문장 — 미달 시 재작성
+- 수치는 반드시 (기관명, 연도) 출처 표기
+- 추상적 표현("부족", "낮다") 단독 사용 금지 — 반드시 수치 병기
+
 HTML만 출력:`,
 
   'basis-objective': (ctx) => `
 [프로젝트 정보]
 ${formatContext(ctx)}
 
-"I-1 마. 목표분석" 섹션을 작성하세요.
-목표나무(Objective Tree)를 텍스트로 구조화하고 변화이론을 명확히 제시하세요.
+위 정보와 목표나무(Objective Tree) 구조를 바탕으로 KOICA 제안서 "I-1 마. 목표분석" 서술 텍스트를 작성하세요.
+목표나무에 제시된 내용에 기반하여 서술하고, 문제분석과 반드시 연결하세요.
 
-[필수 포함 요소]
-① 목표 분석 개요 — 문제→목표 전환 방향, SMART 원칙 적용 선언
-② 영향(Impact) — SDGs 목표·Target 번호 포함, 2030 장기 변화 목표, 측정 지표
-③ 사업 목적(Outcome 1) — SMART 목표 문장, OVI 지표 2개 이상 (기초선→목표치)
-④ 사업 목적(Outcome 2) — SMART 목표 문장, OVI 지표 2개 이상 (기초선→목표치)
-⑤ 변화이론(Theory of Change) — 활동→산출→성과→영향 경로, 핵심 가정(Assumptions)
-⑥ PDM과의 연계 — 목표 체계와 PDM 수직 논리의 일관성 확인
+[출력 형식 — 반드시 엄수]
+각 항목은 아래 형식:
+<p><strong>1) 소제목</strong> ○ 서술 문단</p>
+<p><strong>2) 소제목</strong> ○ 서술 문단</p>
+<p><strong>3) 소제목</strong> ○ 서술 문단</p>
+정확히 3개 항목
 
-[작성 지시]
-- Outcome 지표: "X% → Y% (사업 종료 시, 출처)" 형식
-- 변화이론은 단계별 화살표 방향을 서술로 표현
-- 전체 6개 소단락
+[항목 구성 — 이 구조 엄수]
+
+1) 사업 목표
+○ 문제 분석 결과를 토대로 핵심 문제를 어떻게 해결할지, 사업 목표를 어떻게 설정했는지 설명 (5~7문장)
+→ 반드시 포함: "문제 분석 결과", "핵심 문제", "사업 목표를 ~~로 설정"
+
+2) 목표 달성을 위한 주요 전략
+○ 목표나무의 성과(Outcomes)를 전략으로 전환하여 설명 (5~7문장)
+항목 내부에 전략별 설명 목록 포함 (<ul><li> 사용):
+- 전략 1: 왜 필요한지 + 무엇을 하는지 (1~2문장)
+- 전략 2: 대상 + 방식 + 기대효과 (1~2문장)
+- 전략 3: 구체적 활동 포함 (1~2문장)
+→ 반드시 포함: "~을 통해", "~를 확보하고자 함"
+
+3) 세부 활동 설명
+○ 목표나무의 산출물(Outputs)을 구체적 활동으로 풀어 설명 (5~7문장)
+활동별 설명 목록 포함 (<ul><li> 사용):
+- 활동명: 대상 / 수행 방법 / 기대효과 (각 1문장씩)
+→ 반드시 포함: "~을 향상시키고자 함"
+
+[품질 기준]
+- 추상적 표현("강화") 단독 사용 금지 — 어떤 방식으로 무엇을 강화하는지 서술
+- 수치는 (기관명, 연도) 출처 표기
+- 문제분석 섹션의 내용과 논리적으로 연결
+
 HTML만 출력:`,
 
   'basis-self-assessment': (ctx) => `
@@ -1011,9 +1044,18 @@ const FALLBACK: Record<string, string> = {
    ROUTE HANDLER
    ───────────────────────────────────────────── */
 
+const PMC_SYSTEM_ADDENDUM = `
+
+[PMC 사업 특별 지침]
+위에 제공된 KOICA 집행계획(안) 원문을 반드시 제안서 작성의 기본 바탕으로 활용하세요.
+- 원문의 과업 구조·PDM·목표·지표를 토대로 내용을 심화하거나 변형하세요.
+- 원문에 있는 핵심 요소(목표, 수혜대상, 주요 과업, 지표)는 그대로 유지하되, 구체성을 높이세요.
+- 원문에 없지만 제안서에 필요한 내용(수행기관 역량, 젠더 전략, 지속가능성 등)은 추가하세요.
+- 원문의 내용과 모순되거나 어긋나는 내용은 쓰지 마세요.`;
+
 export async function POST(req: NextRequest) {
   try {
-    const { sectionId, projectContext } = await req.json();
+    const { sectionId, projectContext, projectType, pmcSourceDocs } = await req.json();
 
     const promptFn = SECTION_PROMPTS[sectionId];
     if (!promptFn) {
@@ -1023,6 +1065,17 @@ export async function POST(req: NextRequest) {
     if (!isOpenAIConfigured()) {
       const fallback = FALLBACK[sectionId];
       return NextResponse.json({ success: true, html: fallback || '<p>예시 내용을 직접 작성해 주세요.</p>' });
+    }
+
+    // Build PMC source text if available
+    let pmcSourceText = '';
+    if (projectType === 'pmc' && Array.isArray(pmcSourceDocs) && pmcSourceDocs.length > 0) {
+      pmcSourceText = pmcSourceDocs
+        .map((doc: { fileName: string; extractedText: string }) =>
+          `--- ${doc.fileName} ---\n${doc.extractedText.slice(0, 8000)}`
+        )
+        .join('\n\n')
+        .slice(0, 15000);
     }
 
     const ctx: Record<string, string> = {
@@ -1042,11 +1095,16 @@ export async function POST(req: NextRequest) {
       objectiveTree:       projectContext?.objectiveTree       || '',
       expertInsights:      projectContext?.expertInsights      || '',
       projectSummary:      projectContext?.projectSummary      || '',
+      pmcSourceText,
     };
+
+    const systemPrompt = pmcSourceText
+      ? SYSTEM_PROMPT + PMC_SYSTEM_ADDENDUM
+      : SYSTEM_PROMPT;
 
     const html = await generateTextPro(
       [{ role: 'user', content: promptFn(ctx) }],
-      SYSTEM_PROMPT
+      systemPrompt
     );
 
     const cleaned = html

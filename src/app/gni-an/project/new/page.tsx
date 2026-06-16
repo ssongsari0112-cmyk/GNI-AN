@@ -7,10 +7,10 @@ const PROGRAMS = [
     id: 'pmc',
     icon: <Building2 size={28} className="text-[#8AA81E]" />,
     label: '국별협력사업(PMC)',
-    desc: '협력국의 국가개발전략과 한국의 CPS에 기반해 중장기 개발협력 사업을 기획하는 프로그램입니다.',
-    tags: ['CPS 정합성', '정부협력', '중장기 사업', 'PDM 필수'],
+    desc: 'KOICA 집행계획(안)을 기반으로 과업을 심화·변형하여 제안서를 작성하는 프로그램입니다.',
+    tags: ['CPS 정합성', '정부협력', '과업지시서 기반', 'PDM 필수'],
     cta: 'PMC로 시작하기',
-    active: false,
+    active: true,
   },
   {
     id: 'civil-society-cooperation-entry',
@@ -36,7 +36,11 @@ export default function ProjectNewPage() {
   const router = useRouter();
 
   function handleSelect(programId: string) {
-    router.push('/gni-an/project/civil-society');
+    if (programId === 'pmc') {
+      router.push('/gni-an/project/pmc');
+    } else {
+      router.push('/gni-an/project/civil-society');
+    }
   }
 
   return (
