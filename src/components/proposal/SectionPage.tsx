@@ -11,7 +11,13 @@ import type { SectionId } from '@/types';
 import { Check, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
-const AUTO_DRAFT_SECTIONS = new Set(['basis-background', 'basis-demand']);
+const AUTO_DRAFT_SECTIONS = new Set([
+  'basis-background', 'basis-demand', 'basis-stakeholder',
+  'basis-problem', 'basis-objective', 'basis-self-assessment',
+  'plan-detail', 'plan-crosscutting', 'plan-sustainability',
+  'monitoring-plan', 'monitoring-risk', 'monitoring-endline',
+  'operation-organization', 'operation-accounting',
+]);
 
 interface SectionPageProps {
   sectionId: SectionId;

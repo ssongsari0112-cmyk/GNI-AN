@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Collapsible } from '@/components/ui/Collapsible';
 import type { PDMRow } from '@/types';
 import { clsx } from 'clsx';
-import { useState } from 'react';
-import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 
 function PDMRowCard({ row, depth = 0 }: { row: PDMRow; depth?: number }) {
   const [expanded, setExpanded] = useState(depth === 0);
@@ -60,8 +60,40 @@ function PDMRowCard({ row, depth = 0 }: { row: PDMRow; depth?: number }) {
 }
 
 export default function PlanPdmPage() {
-  const { structure, sections, updateSection } = useProjectStore();
+  const { structure, sections, updateSection, setStructure, project, ideation, ideationAnalysis } = useProjectStore();
   const pdm = structure?.pdm || [];
+  const [isGenerating, setIsGenerating] = useState(false);
+  const attempted = useRef(false);
+
+  useEffect(() => {
+    if (pdm.length > 0 || attempted.current) return;
+    attempted.current = true;
+    setIsGenerating(true);
+    const ctx = {
+      country: project?.country || ideation?.country || '',
+      field: project?.field || ideation?.field || '',
+      coreProblem: ideationAnalysis?.coreProblem || structure?.problemTree?.coreProblem || '',
+    };
+    fetch('/api/gni-an/proposal/pdm-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectContext: ctx }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.pdm?.length > 0) {
+          const base = structure ?? {
+            problemTree: { effects: [], coreProblem: '', causes: [] },
+            objectiveTree: { impact: '', purpose: '', outcomes: [], outputs: [], activities: [] },
+            pdm: [],
+          };
+          setStructure({ ...base, pdm: data.pdm });
+          updateSection('plan-pdm', JSON.stringify(data.pdm), 'in-progress');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsGenerating(false));
+  }, []);
 
   return (
     <ProposalLayout sectionId="plan-pdm" sectionTitle="사업 논리 모형(PDM)">
@@ -84,9 +116,15 @@ export default function PlanPdmPage() {
           </Collapsible>
         </div>
 
-        {pdm.length === 0 ? (
+        {isGenerating ? (
+          <div className="bg-[#F7F8F2] border border-[#D9E6B7] rounded-2xl p-10 text-center flex flex-col items-center gap-3 text-[#5a7012]">
+            <Loader2 size={28} className="animate-spin" />
+            <p className="text-sm font-medium">AI가 PDM 초안을 생성하고 있습니다…</p>
+            <p className="text-xs text-gray-400">잠시만 기다려 주세요</p>
+          </div>
+        ) : pdm.length === 0 ? (
           <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-10 text-center">
-            <p className="text-gray-400 text-sm">구조화 단계에서 PDM을 생성하면 여기에 자동으로 불러옵니다.</p>
+            <p className="text-gray-400 text-sm">PDM이 아직 생성되지 않았습니다. 페이지를 새로고침하거나 구조화 단계를 완료해주세요.</p>
             <Button variant="secondary" size="sm" className="mt-3" onClick={() => window.location.href = '/gni-an/ideation/structure'}>
               구조화 단계로 이동
             </Button>
