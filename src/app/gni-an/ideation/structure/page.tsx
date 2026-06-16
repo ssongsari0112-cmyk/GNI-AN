@@ -5,8 +5,9 @@ import { StepHeader } from '@/components/layout/StepHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import type { Insight, PDMRow } from '@/types';
-import { ArrowRight, RefreshCw, Lightbulb, AlertTriangle, X, Plus, Pencil, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRight, RefreshCw, Lightbulb, AlertTriangle, X, Plus, Pencil, Check, ChevronDown, ChevronUp, MessageSquare, Send } from 'lucide-react';
 import { clsx } from 'clsx';
 
 type Tab = 'problem' | 'objective' | 'pdm';
@@ -442,10 +443,213 @@ function PDMEditor({ structure, setStructure }: { structure: any; setStructure: 
   );
 }
 
+/* ── AI 작성 도우미 사이드바 ──────────────────── */
+const TAB_META: Record<Tab, { title: string; questions: string[] }> = {
+  problem: {
+    title: '문제분석',
+    questions: ['핵심 문제가 명확해?', '원인 구조 논리적이야?', '빠진 원인 있어?', '결과(Effects) 보완해줘', '문제나무 개선점은?'],
+  },
+  objective: {
+    title: '목표체계',
+    questions: ['Impact→Purpose 연결 맞아?', 'SMART 원칙 충족해?', '성과(Outcome) 추가해줘', '활동과 산출물 연계 확인', '개선점 알려줘'],
+  },
+  pdm: {
+    title: 'PDM 초안',
+    questions: ['수직 논리 확인해줘', '지표(OVI) 개선해줘', '검증수단 적절해?', '가정(Assumptions) 보완해줘', '전체 PDM 품질은?'],
+  },
+};
+
+function StructureAiAssistant({ activeTab, structure, ideation, project }: {
+  activeTab: Tab;
+  structure: any;
+  ideation: any;
+  project: any;
+}) {
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [input, setInput] = useState('');
+  const [streaming, setStreaming] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const meta = TAB_META[activeTab];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Clear messages when tab changes
+  useEffect(() => {
+    setMessages([]);
+  }, [activeTab]);
+
+  function getContent(): string {
+    if (!structure) return '(아직 구조가 생성되지 않았습니다)';
+    if (activeTab === 'problem') {
+      const pt = structure.problemTree;
+      if (!pt) return '문제나무 없음';
+      return [
+        `핵심 문제: ${pt.coreProblem}`,
+        `결과(Effects): ${pt.effects?.map((e: any) => e.text).join(', ')}`,
+        `원인: ${pt.causes?.map((c: any) => `${c.text} [하위: ${c.children?.map((ch: any) => ch.text).join(', ')}]`).join(' | ')}`,
+      ].join('\n');
+    }
+    if (activeTab === 'objective') {
+      const ot = structure.objectiveTree;
+      if (!ot) return '목표체계 없음';
+      return [
+        `영향(Impact): ${ot.impact}`,
+        `사업목적(Purpose): ${ot.purpose}`,
+        `성과(Outcomes): ${ot.outcomes?.map((o: any) => `${o.text} [산출물: ${o.children?.map((c: any) => c.text).join(', ')}]`).join(' | ')}`,
+        `활동: ${ot.activities?.map((a: any) => a.text).join(', ')}`,
+      ].join('\n');
+    }
+    if (activeTab === 'pdm') {
+      const pdm = structure.pdm;
+      if (!pdm?.length) return 'PDM 없음';
+      const flatten = (rows: PDMRow[], depth = 0): string[] =>
+        rows.flatMap((r) => [
+          `${'  '.repeat(depth)}[${r.level}] ${r.narrative} | OVI: ${r.indicators} | MOV: ${r.verificationMeans}`,
+          ...(r.children ? flatten(r.children, depth + 1) : []),
+        ]);
+      return flatten(pdm).join('\n');
+    }
+    return '';
+  }
+
+  async function sendMessage(text?: string) {
+    const question = text || input.trim();
+    if (!question || streaming) return;
+
+    setMessages((prev) => [...prev, { role: 'user', content: question }]);
+    setInput('');
+    setStreaming(true);
+    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      const res = await fetch('/api/gni-an/proposal/section/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionId: `structure-${activeTab}`,
+          sectionTitle: `사업 구조화 — ${meta.title}`,
+          content: getContent(),
+          question,
+          projectContext: {
+            field: ideation?.field || project?.field || '',
+            country: ideation?.country || project?.country || '',
+            title: project?.title || '',
+          },
+        }),
+      });
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setMessages((prev) => [...prev.slice(0, -1), { role: 'assistant', content: accumulated }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev.slice(0, -1), { role: 'assistant', content: '오류가 발생했습니다.' }]);
+    } finally {
+      setStreaming(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-white border-l border-[#D9E6B7]">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-[#8AA81E] flex items-center justify-center">
+            <MessageSquare size={12} className="text-white" />
+          </div>
+          <span className="text-sm font-semibold text-[#111827]">AI 작성 도우미</span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">
+          <span className="font-medium text-[#8AA81E]">{meta.title}</span> 탭을 도와드립니다.
+        </p>
+      </div>
+
+      {/* Quick questions */}
+      <div className="px-3 pt-3 pb-2 border-b border-gray-50 flex-shrink-0 flex flex-wrap gap-1.5">
+        {meta.questions.map((q) => (
+          <button
+            key={q}
+            onClick={() => sendMessage(q)}
+            disabled={streaming}
+            className="text-xs bg-[#EEF5D6] text-[#5a7012] border border-[#D9E6B7] rounded-full px-2.5 py-1 hover:bg-[#D9E6B7] transition-colors disabled:opacity-50"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {messages.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-6">
+            위 빠른 질문을 클릭하거나<br />자유롭게 질문해주세요.
+          </p>
+        )}
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={clsx(
+              'text-xs rounded-xl px-3 py-2 leading-relaxed',
+              msg.role === 'user' ? 'bg-[#8AA81E] text-white ml-4' : 'bg-gray-100 text-gray-700 mr-4'
+            )}
+          >
+            {msg.content ? (
+              msg.role === 'assistant' ? (
+                <MarkdownText content={msg.content} className="text-xs" />
+              ) : (
+                <span className="whitespace-pre-wrap">{msg.content}</span>
+              )
+            ) : (
+              streaming && msg.role === 'assistant' ? (
+                <span className="inline-flex gap-0.5">
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              ) : ''
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t border-gray-100 flex-shrink-0">
+        <div className="flex gap-1.5">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="질문하세요..."
+            disabled={streaming}
+            className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#8AA81E] disabled:bg-gray-50"
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={!input.trim() || streaming}
+            className="bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg p-1.5 disabled:opacity-40 transition-colors"
+          >
+            <Send size={12} />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5">AI 응답은 참고용입니다. 직접 선택하여 반영하세요.</p>
+      </div>
+    </div>
+  );
+}
+
 /* ── 메인 페이지 ──────────────────────────────── */
 export default function StructurePage() {
   const router = useRouter();
-  const { ideation, ideationAnalysis, expertSessions, setStructure, setInsights, insights, structure } = useProjectStore();
+  const { ideation, ideationAnalysis, expertSessions, project, setStructure, setInsights, insights, structure } = useProjectStore();
 
   const [loading, setLoading] = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -492,79 +696,95 @@ export default function StructurePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8F2]">
+    <div className="h-screen flex flex-col bg-[#F7F8F2]">
       <StepHeader />
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[#111827] mb-1">사업 구조화</h1>
-            <p className="text-gray-500 text-sm">전문가 상담 결과를 바탕으로 문제분석, 목표체계, PDM을 설계합니다.</p>
-          </div>
-          <button
-            onClick={() => setShowInsights(true)}
-            disabled={insightsLoading}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors border ${
-              insights.length > 0 ? 'bg-[#EEF5D6] border-[#D9E6B7] text-[#5a7012] hover:bg-[#D9E6B7]'
-              : insightsLoading ? 'bg-white border-[#D9E6B7] text-[#8AA81E] animate-pulse'
-              : 'bg-white border-gray-200 text-gray-400'
-            }`}
-          >
-            <Lightbulb size={14} className={insightsLoading ? 'animate-pulse' : ''} />
-            {insightsLoading ? '인사이트 추출 중...' : insights.length > 0 ? `인사이트 ${insights.length}개` : '인사이트'}
-          </button>
-        </div>
 
-        {!generated ? (
-          <div className="bg-white rounded-2xl border border-[#D9E6B7] p-12 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#EEF5D6] flex items-center justify-center mx-auto mb-5">
-              <Lightbulb size={28} className="text-[#8AA81E]" />
-            </div>
-            <h2 className="text-lg font-semibold text-[#111827] mb-2">AI로 사업 구조 생성하기</h2>
-            <p className="text-gray-400 text-sm mb-4">전문가 상담 결과와 아이디어 분석을 바탕으로<br />문제분석, 목표체계, PDM 초안을 자동 생성합니다.</p>
-            {loading && <div className="flex items-center justify-center gap-2 text-sm text-orange-500 mb-3"><AlertTriangle size={14} />생성 중 다른 화면으로 이동하면 작업이 중단됩니다.</div>}
-            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-            <Button onClick={handleGenerate} loading={loading} size="lg">
-              {loading ? '구조 생성 중...' : 'AI로 사업 구조 생성하기'}
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="flex gap-1 bg-white border border-[#D9E6B7] rounded-xl p-1 mb-4">
-              {([{ id: 'problem', label: '문제분석' }, { id: 'objective', label: '목표체계' }, { id: 'pdm', label: 'PDM 초안' }] as const).map((tab) => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={clsx('flex-1 py-2 text-sm font-medium rounded-lg transition-colors', activeTab === tab.id ? 'bg-[#8AA81E] text-white' : 'text-gray-500 hover:text-[#8AA81E]')}>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex justify-end mb-3">
-              <button onClick={handleGenerate} disabled={loading} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#8AA81E] transition-colors">
-                <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-                재생성
+      <div className="flex-1 flex overflow-hidden">
+        {/* 메인 콘텐츠 */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-6 py-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-[#111827] mb-1">사업 구조화</h1>
+                <p className="text-gray-500 text-sm">전문가 상담 결과를 바탕으로 문제분석, 목표체계, PDM을 설계합니다.</p>
+              </div>
+              <button
+                onClick={() => setShowInsights(true)}
+                disabled={insightsLoading}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors border ${
+                  insights.length > 0 ? 'bg-[#EEF5D6] border-[#D9E6B7] text-[#5a7012] hover:bg-[#D9E6B7]'
+                  : insightsLoading ? 'bg-white border-[#D9E6B7] text-[#8AA81E] animate-pulse'
+                  : 'bg-white border-gray-200 text-gray-400'
+                }`}
+              >
+                <Lightbulb size={14} className={insightsLoading ? 'animate-pulse' : ''} />
+                {insightsLoading ? '인사이트 추출 중...' : insights.length > 0 ? `인사이트 ${insights.length}개` : '인사이트'}
               </button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#D9E6B7] p-6">
-              {activeTab === 'problem' && structure?.problemTree && (
-                <ProblemEditor structure={structure} setStructure={setStructure} />
-              )}
-              {activeTab === 'objective' && structure?.objectiveTree && (
-                <ObjectiveEditor structure={structure} setStructure={setStructure} />
-              )}
-              {activeTab === 'pdm' && structure?.pdm && (
-                <PDMEditor structure={structure} setStructure={setStructure} />
-              )}
-            </div>
+            {!generated ? (
+              <div className="bg-white rounded-2xl border border-[#D9E6B7] p-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-[#EEF5D6] flex items-center justify-center mx-auto mb-5">
+                  <Lightbulb size={28} className="text-[#8AA81E]" />
+                </div>
+                <h2 className="text-lg font-semibold text-[#111827] mb-2">AI로 사업 구조 생성하기</h2>
+                <p className="text-gray-400 text-sm mb-4">전문가 상담 결과와 아이디어 분석을 바탕으로<br />문제분석, 목표체계, PDM 초안을 자동 생성합니다.</p>
+                {loading && <div className="flex items-center justify-center gap-2 text-sm text-orange-500 mb-3"><AlertTriangle size={14} />생성 중 다른 화면으로 이동하면 작업이 중단됩니다.</div>}
+                {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                <Button onClick={handleGenerate} loading={loading} size="lg">
+                  {loading ? '구조 생성 중...' : 'AI로 사업 구조 생성하기'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-1 bg-white border border-[#D9E6B7] rounded-xl p-1 mb-4">
+                  {([{ id: 'problem', label: '문제분석' }, { id: 'objective', label: '목표체계' }, { id: 'pdm', label: 'PDM 초안' }] as const).map((tab) => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                      className={clsx('flex-1 py-2 text-sm font-medium rounded-lg transition-colors', activeTab === tab.id ? 'bg-[#8AA81E] text-white' : 'text-gray-500 hover:text-[#8AA81E]')}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="mt-6 flex justify-end">
-              <Button size="lg" onClick={() => router.push('/gni-an/ideation/summary')}>
-                다음 단계 <ArrowRight size={16} />
-              </Button>
-            </div>
-          </>
-        )}
-      </main>
+                <div className="flex justify-end mb-3">
+                  <button onClick={handleGenerate} disabled={loading} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#8AA81E] transition-colors">
+                    <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                    재생성
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-[#D9E6B7] p-6">
+                  {activeTab === 'problem' && structure?.problemTree && (
+                    <ProblemEditor structure={structure} setStructure={setStructure} />
+                  )}
+                  {activeTab === 'objective' && structure?.objectiveTree && (
+                    <ObjectiveEditor structure={structure} setStructure={setStructure} />
+                  )}
+                  {activeTab === 'pdm' && structure?.pdm && (
+                    <PDMEditor structure={structure} setStructure={setStructure} />
+                  )}
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <Button size="lg" onClick={() => router.push('/gni-an/ideation/summary')}>
+                    다음 단계 <ArrowRight size={16} />
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </main>
+
+        {/* AI 작성 도우미 사이드바 */}
+        <div className="hidden xl:flex w-80 flex-shrink-0 flex-col overflow-hidden">
+          <StructureAiAssistant
+            activeTab={activeTab}
+            structure={structure}
+            ideation={ideation}
+            project={project}
+          />
+        </div>
+      </div>
 
       {showInsights && <InsightsModal insights={insights} onClose={() => setShowInsights(false)} />}
     </div>
