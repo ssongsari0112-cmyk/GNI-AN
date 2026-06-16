@@ -411,25 +411,44 @@ export default function PDFPreviewPage() {
       <div ref={pagesRef} style={{ maxWidth: 794, margin: '24px auto', paddingBottom: 48 }}>
 
         {/* ── 표지 ── */}
-        <div className="doc-page" style={{ background: 'white', minHeight: 1123, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '80px 60px', pageBreakAfter: 'always' }}>
-          {/* 중앙 테두리 박스 */}
-          <div style={{ border: '2px solid #111', padding: '48px 60px', textAlign: 'center', minWidth: 400, maxWidth: 500 }}>
-            <p style={{ fontSize: '13pt', marginBottom: 8 }}>{coverYear}년</p>
-            <p style={{ fontWeight: 700, fontSize: '16pt', lineHeight: 1.6, marginBottom: 8 }}>
-              {projectDetails.programName || title}
-            </p>
-            {projectDetails.programType && (
-              <p style={{ fontSize: '13pt', marginBottom: 8 }}>{projectDetails.programType}사업</p>
-            )}
-            <p style={{ fontSize: '14pt', fontWeight: 700, marginTop: 16 }}>사업실행계획서</p>
-          </div>
+        {(() => {
+          const location = [project?.country, project?.region || ideation?.subRegion].filter(Boolean).join(' ');
+          const field = project?.field || ideation?.field || '';
+          const org = project?.organization || '굿네이버스';
+          const startY = project?.startDate ? String(new Date(project.startDate).getFullYear()).slice(2) : '';
+          const endY   = project?.endDate   ? String(new Date(project.endDate).getFullYear()).slice(2)   : '';
+          const budget = project?.budget ? `${Number(project.budget).toLocaleString()}백만원` : '';
+          const phaseInfo = [startY && endY ? `${startY}-${endY}` : '', budget].filter(Boolean).join('/');
+          const docLabel = projectDetails.programType
+            ? `- ${projectDetails.programType}사업 사업실행계획서 -`
+            : '- 사업제안서 -';
+          return (
+            <div className="doc-page" style={{ background: 'white', minHeight: 1123, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '80px 60px', pageBreakAfter: 'always' }}>
+              {/* 중앙 테두리 박스 */}
+              <div style={{ border: '2px solid #111', padding: '52px 64px', textAlign: 'center', minWidth: 420, maxWidth: 520 }}>
+                {location && (
+                  <p style={{ fontWeight: 700, fontSize: '20pt', marginBottom: 20 }}>{location}</p>
+                )}
+                <p style={{ fontSize: '14pt', lineHeight: 1.8, marginBottom: 20, wordBreak: 'keep-all' }}>
+                  {title}
+                </p>
+                {phaseInfo && (
+                  <p style={{ fontSize: '11pt', color: '#444', marginBottom: 16 }}>({phaseInfo})</p>
+                )}
+                {projectDetails.documentNote && (
+                  <p style={{ fontSize: '10pt', color: '#555', marginBottom: 12 }}>{projectDetails.documentNote}</p>
+                )}
+                <p style={{ fontSize: '13pt', fontWeight: 700, marginTop: 8 }}>{docLabel}</p>
+              </div>
 
-          {/* 하단 정보 */}
-          <div style={{ marginTop: 72, textAlign: 'center', fontSize: '12pt', lineHeight: 2 }}>
-            <p style={{ fontWeight: 700 }}>- {project?.organization || '굿네이버스'} -</p>
-            <p>{dateStr}{projectDetails.documentNote && ` (${projectDetails.documentNote})`}</p>
-          </div>
-        </div>
+              {/* 하단 정보 */}
+              <div style={{ marginTop: 80, textAlign: 'center', fontSize: '12pt', lineHeight: 2.2 }}>
+                <p>{[field, org].filter(Boolean).join(' / ')}</p>
+                <p>{dateStr}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── 목차 ── */}
         <div className="doc-page" style={{ background: 'white', padding: '60px 60px', pageBreakAfter: 'always' }}>

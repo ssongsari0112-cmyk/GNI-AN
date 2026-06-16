@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ProposalLayout } from '@/components/layout/ProposalLayout';
 import { RichTextEditor } from '@/components/editors/RichTextEditor';
 import { Collapsible } from '@/components/ui/Collapsible';
@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import type { SectionId } from '@/types';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
+
+const AUTO_DRAFT_SECTIONS = new Set(['basis-background', 'basis-demand']);
 
 interface SectionPageProps {
   sectionId: SectionId;
@@ -23,6 +25,7 @@ interface SectionPageProps {
   maxWords?: number;
   children?: React.ReactNode;
   customContent?: boolean;
+  autoDraft?: boolean;
 }
 
 export function SectionPage({
@@ -37,13 +40,49 @@ export function SectionPage({
   maxWords = 0,
   children,
   customContent = false,
+  autoDraft,
 }: SectionPageProps) {
-  const { sections, updateSection, ideation, structure, expertSessions, experts } = useProjectStore();
+  const { sections, updateSection, ideation, structure, expertSessions, experts, project, ideationAnalysis } = useProjectStore();
   const sectionData = sections[sectionId];
   const content = sectionData?.content || '';
   const wordCount = content.replace(/<[^>]*>/g, '').length;
 
   const [saved, setSaved] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const draftAttempted = useRef(false);
+
+  const shouldAutoDraft = autoDraft ?? AUTO_DRAFT_SECTIONS.has(sectionId);
+
+  useEffect(() => {
+    if (!shouldAutoDraft || content !== '' || draftAttempted.current) return;
+    draftAttempted.current = true;
+    setIsGenerating(true);
+
+    const projectContext = {
+      title: project?.title || '',
+      country: project?.country || ideation?.country || '',
+      region: project?.region || ideation?.subRegion || '',
+      field: project?.field || ideation?.field || '',
+      idea: ideation?.idea || '',
+      coreProblem: ideationAnalysis?.coreProblem || structure?.problemTree?.coreProblem || '',
+      targetBeneficiaries: ideationAnalysis?.targetBeneficiaries || ideation?.beneficiaries || '',
+      interventionApproach: ideationAnalysis?.interventionApproach || '',
+    };
+
+    fetch('/api/gni-an/proposal/section/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionId, projectContext }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.html) {
+          updateSection(sectionId, data.html, 'in-progress');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsGenerating(false));
+  }, []);
 
   const handleChange = useCallback((html: string) => {
     const charCount = html.replace(/<[^>]*>/g, '').length;
@@ -154,14 +193,22 @@ export function SectionPage({
           children
         ) : (
           <>
-            <RichTextEditor
-              content={content}
-              onChange={handleChange}
-              minHeight={350}
-            />
+            {isGenerating ? (
+              <div className="border border-[#D9E6B7] rounded-xl bg-[#F7F8F2] flex flex-col items-center justify-center gap-3 text-[#5a7012]" style={{ minHeight: 350 }}>
+                <Loader2 size={28} className="animate-spin" />
+                <p className="text-sm font-medium">AI가 초안을 작성하고 있습니다…</p>
+                <p className="text-xs text-gray-400">잠시만 기다려 주세요 (10~20초)</p>
+              </div>
+            ) : (
+              <RichTextEditor
+                content={content}
+                onChange={handleChange}
+                minHeight={350}
+              />
+            )}
 
             {/* Word count & status */}
-            <div className="flex items-center justify-between mt-2">
+            <div className={clsx('flex items-center justify-between mt-2', isGenerating && 'opacity-0 pointer-events-none')}>
               <div className={clsx(
                 'text-xs',
                 minWords > 0 && wordCount < minWords ? 'text-orange-400' : wordCount > 0 ? 'text-[#8AA81E]' : 'text-gray-400'
