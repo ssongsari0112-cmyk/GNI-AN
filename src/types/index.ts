@@ -122,6 +122,7 @@ export interface ProposalSection {
   code: string;
   title: string;
   content: string;
+  aiDraft?: string;
   status: SectionStatus;
   wordCount: number;
 }

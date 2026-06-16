@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import type { SectionId } from '@/types';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Sparkles, RefreshCw, PenLine, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const AUTO_DRAFT_SECTIONS = new Set([
@@ -48,22 +48,23 @@ export function SectionPage({
   customContent = false,
   autoDraft,
 }: SectionPageProps) {
-  const { sections, updateSection, ideation, structure, expertSessions, experts, project, ideationAnalysis } = useProjectStore();
+  const {
+    sections, updateSection, updateSectionAiDraft,
+    ideation, structure, expertSessions, experts, project, ideationAnalysis,
+  } = useProjectStore();
   const sectionData = sections[sectionId];
   const content = sectionData?.content || '';
+  const aiDraft = sectionData?.aiDraft || '';
   const wordCount = content.replace(/<[^>]*>/g, '').length;
 
   const [saved, setSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<'ai' | 'user'>('user');
   const draftAttempted = useRef(false);
 
   const shouldAutoDraft = autoDraft ?? AUTO_DRAFT_SECTIONS.has(sectionId);
 
-  useEffect(() => {
-    if (!shouldAutoDraft || content !== '' || draftAttempted.current) return;
-    draftAttempted.current = true;
-    setIsGenerating(true);
-
+  const buildProjectContext = () => {
     const expertInsights = expertSessions
       .filter((s) => s.messages.length > 0)
       .flatMap((s) => {
@@ -75,7 +76,7 @@ export function SectionPage({
       })
       .join('\n');
 
-    const projectContext = {
+    return {
       title: project?.title || '',
       country: project?.country || ideation?.country || '',
       region: project?.region || ideation?.subRegion || '',
@@ -108,7 +109,15 @@ export function SectionPage({
       expertInsights,
       projectSummary: (ideationAnalysis as unknown as Record<string, string> | null)?.summary || ideation?.idea?.slice(0, 500) || '',
     };
+  };
 
+  // Auto-draft on first visit when content is empty
+  useEffect(() => {
+    if (!shouldAutoDraft || content !== '' || draftAttempted.current) return;
+    draftAttempted.current = true;
+    setIsGenerating(true);
+
+    const projectContext = buildProjectContext();
     fetch('/api/gni-an/proposal/section/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,11 +127,37 @@ export function SectionPage({
       .then((data) => {
         if (data.success && data.html) {
           updateSection(sectionId, data.html, 'in-progress');
+          updateSectionAiDraft(sectionId, data.html);
         }
       })
       .catch(() => {})
       .finally(() => setIsGenerating(false));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRegenerateDraft = useCallback(() => {
+    setIsGenerating(true);
+    const projectContext = buildProjectContext();
+    fetch('/api/gni-an/proposal/section/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionId, projectContext }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.html) {
+          updateSectionAiDraft(sectionId, data.html);
+          setViewMode('ai');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsGenerating(false));
+  }, [sectionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUseAiDraft = () => {
+    if (!aiDraft) return;
+    updateSection(sectionId, aiDraft, 'in-progress');
+    setViewMode('user');
+  };
 
   const handleChange = useCallback((html: string) => {
     const charCount = html.replace(/<[^>]*>/g, '').length;
@@ -233,12 +268,75 @@ export function SectionPage({
           children
         ) : (
           <>
+            {/* Mode toggle + regenerate — only for auto-draft sections */}
+            {shouldAutoDraft && !isGenerating && (
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex rounded-lg border border-[#D9E6B7] bg-[#F7F8F2] p-0.5 gap-0.5">
+                  <button
+                    onClick={() => setViewMode('ai')}
+                    className={clsx(
+                      'flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
+                      viewMode === 'ai'
+                        ? 'bg-white text-[#5a7012] shadow-sm'
+                        : 'text-gray-400 hover:text-[#5a7012]'
+                    )}
+                  >
+                    <Sparkles size={11} />AI 초안
+                  </button>
+                  <button
+                    onClick={() => setViewMode('user')}
+                    className={clsx(
+                      'flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
+                      viewMode === 'user'
+                        ? 'bg-white text-[#5a7012] shadow-sm'
+                        : 'text-gray-400 hover:text-[#5a7012]'
+                    )}
+                  >
+                    <PenLine size={11} />내 작성
+                  </button>
+                </div>
+                <button
+                  onClick={handleRegenerateDraft}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#5a7012] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
+                >
+                  <RefreshCw size={11} />AI 초안 다시 생성
+                </button>
+              </div>
+            )}
+
             {isGenerating ? (
               <div className="border border-[#D9E6B7] rounded-xl bg-[#F7F8F2] flex flex-col items-center justify-center gap-3 text-[#5a7012]" style={{ minHeight: 350 }}>
                 <Loader2 size={28} className="animate-spin" />
                 <p className="text-sm font-medium">AI가 초안을 작성하고 있습니다…</p>
                 <p className="text-xs text-gray-400">잠시만 기다려 주세요 (10~20초)</p>
               </div>
+            ) : viewMode === 'ai' && shouldAutoDraft ? (
+              aiDraft ? (
+                <>
+                  <div
+                    className="border border-[#D9E6B7] rounded-xl bg-white px-6 py-5 overflow-auto"
+                    style={{ minHeight: 350 }}
+                    dangerouslySetInnerHTML={{ __html: aiDraft }}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-400">읽기 전용 — 편집하려면 '내 작성'으로 전환</span>
+                    <Button size="sm" onClick={handleUseAiDraft}>
+                      이 초안으로 편집 시작 <ArrowRight size={12} />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="border border-[#D9E6B7] rounded-xl bg-[#F7F8F2] flex flex-col items-center justify-center gap-3 text-gray-400" style={{ minHeight: 350 }}>
+                  <Sparkles size={24} />
+                  <p className="text-sm">저장된 AI 초안이 없습니다.</p>
+                  <button
+                    onClick={handleRegenerateDraft}
+                    className="flex items-center gap-1.5 text-xs text-[#5a7012] border border-[#D9E6B7] bg-white rounded-lg px-3 py-1.5 hover:bg-[#F7F8F2] transition-colors"
+                  >
+                    <Sparkles size={12} />초안 생성하기
+                  </button>
+                </div>
+              )
             ) : (
               <RichTextEditor
                 content={content}
@@ -248,7 +346,7 @@ export function SectionPage({
             )}
 
             {/* Word count & status */}
-            <div className={clsx('flex items-center justify-between mt-2', isGenerating && 'opacity-0 pointer-events-none')}>
+            <div className={clsx('flex items-center justify-between mt-2', (isGenerating || (viewMode === 'ai' && shouldAutoDraft)) && 'opacity-0 pointer-events-none')}>
               <div className={clsx(
                 'text-xs',
                 minWords > 0 && wordCount < minWords ? 'text-orange-400' : wordCount > 0 ? 'text-[#8AA81E]' : 'text-gray-400'

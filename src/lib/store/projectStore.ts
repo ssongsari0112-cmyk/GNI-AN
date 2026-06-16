@@ -32,6 +32,7 @@ interface ProjectStore {
   setStructure: (s: StructureData) => void;
   setSummary: (s: ProjectSummary) => void;
   updateSection: (id: string, content: string, status: SectionStatus) => void;
+  updateSectionAiDraft: (id: string, aiDraft: string) => void;
   setScheduleActivities: (a: ScheduleActivity[]) => void;
   setInsights: (i: Insight[]) => void;
   setBudgetFile: (f: { name: string; size: number; uploadedAt: string } | null) => void;
@@ -105,6 +106,13 @@ export const useProjectStore = create<ProjectStore>()(
               status,
               wordCount: content.replace(/<[^>]*>/g, '').length,
             },
+          },
+        })),
+      updateSectionAiDraft: (id, aiDraft) =>
+        set((state) => ({
+          sections: {
+            ...state.sections,
+            [id]: { ...state.sections[id], aiDraft },
           },
         })),
       setScheduleActivities: (a) => set({ scheduleActivities: a }),
