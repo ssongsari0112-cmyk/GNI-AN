@@ -13,7 +13,7 @@ function CreateForm() {
   const router = useRouter();
   const params = useSearchParams();
   const returnTo = params.get('returnTo');
-  const { project, setProject, projectDetails, setProjectDetails, ideation, summary, getCompletedExpertsCount } = useProjectStore();
+  const { project, setProject, projectDetails, setProjectDetails, ideation, summary, getCompletedExpertsCount, projectType, pmcSourceDocs } = useProjectStore();
 
   const [form, setForm] = useState({
     title: '',
@@ -27,14 +27,28 @@ function CreateForm() {
 
   const [details] = useState<ProjectDetails>(projectDetails || DEFAULT_PROJECT_DETAILS);
 
+  const pmcAnalyzed = projectType === 'pmc' ? pmcSourceDocs[0]?.analyzed : undefined;
+
   useEffect(() => {
+    // KOICA 집행계획(안) 원문에서 추출한 기간(예: "2024~2027")을 시작일/종료일로 변환
+    let pmcStart = '';
+    let pmcEnd = '';
+    const durationMatch = pmcAnalyzed?.duration?.match(/(\d{4})\s*[-~](\d{4})/);
+    if (durationMatch) {
+      pmcStart = `${durationMatch[1]}-01-01`;
+      pmcEnd = `${durationMatch[2]}-12-31`;
+    }
+
     setForm((prev) => ({
       ...prev,
-      title: summary?.basicInfo?.title || project?.title || '',
-      country: ideation?.country || project?.country || '',
-      region: ideation?.subRegion || project?.region || '',
+      title: summary?.basicInfo?.title || project?.title || pmcAnalyzed?.title || prev.title,
+      country: ideation?.country || project?.country || pmcAnalyzed?.country || prev.country,
+      region: ideation?.subRegion || project?.region || pmcAnalyzed?.region || prev.region,
+      startDate: project?.startDate || pmcStart || prev.startDate,
+      endDate: project?.endDate || pmcEnd || prev.endDate,
+      budget: project?.budget ? String(project.budget) : (pmcAnalyzed?.budget || prev.budget),
     }));
-  }, [ideation, summary, project]);
+  }, [ideation, summary, project, pmcAnalyzed]);
 
   const isValid = form.title && form.organization && form.country && form.startDate && form.endDate && form.budget;
 
@@ -78,6 +92,14 @@ function CreateForm() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
+        {pmcAnalyzed && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
+              🏛 KOICA 집행계획(안) 기반 자동 입력됨
+            </span>
+            <span className="text-xs text-gray-400">필요한 항목은 직접 수정할 수 있습니다</span>
+          </div>
+        )}
         {/* Summary card */}
         <div className="bg-[#EEF5D6] border border-[#D9E6B7] rounded-2xl p-5 mb-8">
           <div className="flex items-center gap-2 mb-3">
