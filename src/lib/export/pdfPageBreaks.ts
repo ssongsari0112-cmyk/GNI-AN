@@ -11,7 +11,13 @@ export const PDF_ATOMIC_CLASS = 'pdf-atomic-block';
 const A4_HEIGHT_MM = 297;
 export const PDF_MARGIN_V_MM = 6; // 페이지 상/하 여백
 
-/** 표의 행(tr), 목록 항목(li), 제목+목록 묶음, .pdf-atomic-block 요소를 분할 금지 영역으로 수집 */
+/**
+ * 분할 금지 영역을 수집.
+ * - table: 표 전체를 통째로 다음 페이지로 넘기는 것을 우선 시도
+ * - tr, li: 표가 한 페이지보다 커서 통째로 옮길 수 없을 때, 행/항목 단위로는 절대 분할되지 않도록 보장
+ * - .pdf-atomic-block: 나무 다이어그램 등 분할 금지 블록
+ * - 본문(doc-content) 제목+목록 묶음
+ */
 export function getNoSplitRanges(page: HTMLElement): Range[] {
   const pageRect = page.getBoundingClientRect();
   const ranges: Range[] = [];
@@ -21,6 +27,7 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
     ranges.push({ top: r.top - pageRect.top, bottom: r.bottom - pageRect.top });
   };
 
+  page.querySelectorAll<HTMLElement>('table').forEach(pushEl);
   page.querySelectorAll<HTMLElement>('tr').forEach(pushEl);
   page.querySelectorAll<HTMLElement>('li').forEach(pushEl);
   page.querySelectorAll<HTMLElement>(`.${PDF_ATOMIC_CLASS}`).forEach(pushEl);
@@ -30,7 +37,7 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
     for (let i = 0; i < children.length; i++) {
       const el = children[i];
       const tag = el.tagName.toLowerCase();
-      if (tag === 'table' || tag === 'ul' || tag === 'ol') continue; // 이미 tr/li로 보호됨
+      if (tag === 'table' || tag === 'ul' || tag === 'ol') continue; // 이미 보호됨
       const next = children[i + 1];
       const r1 = el.getBoundingClientRect();
       const top = r1.top - pageRect.top;
@@ -46,18 +53,30 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
   return ranges;
 }
 
-/** desired 경계가 보호 영역을 가로지르면, 해당 영역의 시작 지점으로 경계를 끌어올림 */
+/**
+ * desired 경계가 보호 영역을 가로지르면 경계를 조정.
+ * 1) 통째로 다음 페이지로 옮길 수 있는(아직 시작 안 한) 영역이 있으면, 그 중 가장 바깥쪽(가장 이른 top)으로 경계를 끌어올림
+ *    → 표 전체가 한 페이지에 들어가면 표째로 다음 페이지로 넘어감
+ * 2) 옮길 수 있는 영역이 없다면(이미 그 영역 안에서 자르는 중) — 가장 안쪽(가장 작은) 영역의 끝으로 경계를 내려서
+ *    표는 분할되더라도 행/항목만큼은 절대 쪼개지지 않도록 함
+ */
 export function adjustBoundary(ranges: Range[], desired: number, minBoundary: number): number {
   let boundary = desired;
-  for (let pass = 0; pass < 8; pass++) {
-    const straddler = ranges.find((r) => r.top < boundary - 0.5 && r.bottom > boundary + 0.5);
-    if (!straddler) break;
-    if (straddler.top > minBoundary + 0.5) {
-      boundary = straddler.top;
-    } else {
-      boundary = straddler.bottom; // 영역 자체가 한 페이지보다 커서 어쩔 수 없이 끝까지 포함
-      break;
+  for (let guard = 0; guard < 12; guard++) {
+    const straddlers = ranges.filter((r) => r.top < boundary - 0.5 && r.bottom > boundary + 0.5);
+    if (straddlers.length === 0) return boundary;
+
+    const movable = straddlers.filter((r) => r.top > minBoundary + 0.5);
+    if (movable.length > 0) {
+      // 옮길 수 있는 영역(표 전체 등) 중 가장 바깥쪽으로 한 번에 결정 — 이후 그 영역 내부를
+      // 다시 검사하면 표 전체가 또 "분할 금지"로 잡혀 무한히 표의 끝까지 밀려나가는
+      // 문제가 생기므로, movable을 찾으면 즉시 확정한다.
+      return Math.min(...movable.map((r) => r.top));
     }
+
+    const innermost = straddlers.reduce((a, b) => (b.bottom - b.top < a.bottom - a.top ? b : a));
+    if (innermost.bottom <= boundary + 0.5) return boundary; // 진행이 없으면 무한루프 방지
+    boundary = innermost.bottom;
   }
   return boundary;
 }
