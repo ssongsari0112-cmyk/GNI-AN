@@ -1,11 +1,11 @@
 'use client';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ProposalLayout } from '@/components/layout/ProposalLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useProjectStore } from '@/lib/store/projectStore';
-import type { ScheduleActivity } from '@/types';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { ScheduleActivity, PDMRow } from '@/types';
+import { Plus, RefreshCw, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function generateMonths(startDate: string, endDate: string): string[] {
@@ -38,22 +38,27 @@ function groupMonthsByYear(months: string[]): { year: number; months: string[] }
 }
 
 function initActivities(structure: ReturnType<typeof useProjectStore.getState>['structure']): ScheduleActivity[] {
-  if (!structure) return [];
+  if (!structure?.pdm) return [];
   const activities: ScheduleActivity[] = [];
-  const allActivities = structure.objectiveTree?.activities || [];
-  allActivities.forEach((a, i) => {
-    activities.push({
-      id: a.id,
-      code: `A${i + 1}`,
-      name: a.text,
-      periods: [],
+  function walk(rows: PDMRow[]) {
+    rows.forEach((row) => {
+      if (row.level === 'activity') {
+        activities.push({
+          id: row.id,
+          code: row.code || `A${activities.length + 1}`,
+          name: row.narrative,
+          periods: [],
+        });
+      }
+      if (row.children?.length) walk(row.children);
     });
-  });
+  }
+  walk(structure.pdm);
   return activities;
 }
 
 export default function MonitoringSchedulePage() {
-  const { project, structure, scheduleActivities, setScheduleActivities, updateSection } = useProjectStore();
+  const { project, ideation, structure, scheduleActivities, setScheduleActivities, updateSection, projectType, pmcSourceDocs } = useProjectStore();
   const months = generateMonths(project?.startDate || '', project?.endDate || '');
   const yearGroups = groupMonthsByYear(months);
 
@@ -62,6 +67,8 @@ export default function MonitoringSchedulePage() {
   );
   const [dragging, setDragging] = useState<{ actId: string; startIdx: number } | null>(null);
   const [newRowName, setNewRowName] = useState('');
+  const [autocompleting, setAutocompleting] = useState(false);
+  const [autocompleteError, setAutocompleteError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,6 +80,51 @@ export default function MonitoringSchedulePage() {
   function syncFromPDM() {
     const newActs = initActivities(structure);
     setActivities(newActs);
+  }
+
+  async function handleAiAutocomplete() {
+    setAutocompleting(true);
+    setAutocompleteError('');
+    try {
+      const base = activities.length > 0 ? activities : initActivities(structure);
+      if (base.length === 0) {
+        setAutocompleteError('자동완성할 활동이 없습니다. 먼저 PDM에서 활동을 가져오거나 활동을 추가해주세요.');
+        return;
+      }
+      const res = await fetch('/api/gni-an/proposal/schedule-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activities: base.map((a) => ({ id: a.id, code: a.code, name: a.name })),
+          monthsCount: months.length,
+          projectType,
+          pmcSourceDocs,
+          projectContext: {
+            title: project?.title || '',
+            country: project?.country || ideation?.country || '',
+            field: project?.field || ideation?.field || '',
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.schedule)) {
+        const byId = new Map(data.schedule.map((s: { id: string; startMonth: number; endMonth: number }) => [s.id, s]));
+        const filled = base.map((a) => {
+          const range = byId.get(a.id) as { startMonth: number; endMonth: number } | undefined;
+          if (!range) return a;
+          const periods = new Array(months.length).fill(false);
+          for (let i = range.startMonth; i <= range.endMonth; i++) periods[i] = true;
+          return { ...a, periods };
+        });
+        setActivities(filled);
+      } else {
+        setAutocompleteError(data.error || '자동완성에 실패했습니다.');
+      }
+    } catch {
+      setAutocompleteError('자동완성 중 오류가 발생했습니다.');
+    } finally {
+      setAutocompleting(false);
+    }
   }
 
   function toggleCell(actId: string, monthIdx: number) {
@@ -142,9 +194,23 @@ export default function MonitoringSchedulePage() {
               <RefreshCw size={13} />
               PDM에서 활동 가져오기
             </Button>
+            <button
+              onClick={handleAiAutocomplete}
+              disabled={autocompleting}
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#8AA81E] hover:bg-[#799516] rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
+            >
+              {autocompleting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {autocompleting ? 'AI 일정 배정 중...' : 'AI 자동완성'}
+            </button>
             <Button size="sm" onClick={handleSave}>저장</Button>
           </div>
         </div>
+        {autocompleteError && (
+          <p className="text-xs text-red-400 mb-2">{autocompleteError}</p>
+        )}
+        {projectType === 'pmc' && (
+          <p className="text-xs text-blue-500 mb-2">🏛 PMC 모드 — AI 자동완성 시 업로드한 집행계획(안) 원문의 일정을 우선 반영합니다.</p>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
