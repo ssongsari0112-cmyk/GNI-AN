@@ -7,9 +7,71 @@ import { Collapsible } from '@/components/ui/Collapsible';
 import type { PDMRow } from '@/types';
 import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
-function PDMRowCard({ row, depth = 0 }: { row: PDMRow; depth?: number }) {
+const LEVEL_LABEL: Record<PDMRow['level'], string> = {
+  impact: 'Impact',
+  purpose: 'Purpose',
+  outcome: 'Outcome',
+  output: 'Output',
+  activity: 'Activity',
+};
+
+const CHILD_LEVEL: Record<PDMRow['level'], PDMRow['level'] | null> = {
+  impact: 'outcome',
+  purpose: 'outcome',
+  outcome: 'output',
+  output: 'activity',
+  activity: null,
+};
+
+function genCode(parentCode: string | undefined, level: PDMRow['level'], index: number): string {
+  if (level === 'outcome') return `Outcome ${index}`;
+  if (level === 'output') {
+    const parentNum = parentCode?.replace(/^Outcome\s*/, '') || '';
+    return `Output ${parentNum}.${index}`;
+  }
+  if (level === 'activity') {
+    const parentNum = parentCode?.replace(/^Output\s*/, '') || '';
+    return `Activity ${parentNum}.${index}`;
+  }
+  return '';
+}
+
+/* ── PDM 트리 순수 함수 헬퍼 ── */
+function mapTree(rows: PDMRow[], fn: (row: PDMRow) => PDMRow): PDMRow[] {
+  return rows.map((r) => {
+    const updated = fn(r);
+    return updated.children ? { ...updated, children: mapTree(updated.children, fn) } : updated;
+  });
+}
+
+function updateRowField(pdm: PDMRow[], id: string, patch: Partial<PDMRow>): PDMRow[] {
+  return mapTree(pdm, (r) => (r.id === id ? { ...r, ...patch } : r));
+}
+
+function addChildRow(pdm: PDMRow[], parentId: string, child: PDMRow): PDMRow[] {
+  return mapTree(pdm, (r) => (r.id === parentId ? { ...r, children: [...(r.children || []), child] } : r));
+}
+
+function deleteRowById(pdm: PDMRow[], id: string): PDMRow[] {
+  function filterChildren(rows: PDMRow[]): PDMRow[] {
+    return rows
+      .filter((r) => r.id !== id)
+      .map((r) => (r.children ? { ...r, children: filterChildren(r.children) } : r));
+  }
+  return filterChildren(pdm);
+}
+
+function PDMRowCard({
+  row, depth = 0, onUpdate, onAddChild, onDelete,
+}: {
+  row: PDMRow;
+  depth?: number;
+  onUpdate: (id: string, patch: Partial<PDMRow>) => void;
+  onAddChild: (row: PDMRow) => void;
+  onDelete: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(depth === 0);
 
   const levelConfig: Record<string, { label: string; bg: string; border: string; text: string }> = {
@@ -20,41 +82,66 @@ function PDMRowCard({ row, depth = 0 }: { row: PDMRow; depth?: number }) {
     activity: { label: 'Activity (활동)',       bg: 'bg-gray-50',    border: 'border-gray-200',   text: 'text-gray-600'   },
   };
   const config = levelConfig[row.level];
+  const childLevel = CHILD_LEVEL[row.level];
+  const fields: { key: 'indicators' | 'verificationMeans' | 'assumptions'; label: string }[] = [
+    { key: 'indicators', label: '지표 (OVI)' },
+    { key: 'verificationMeans', label: '검증수단 (MOV)' },
+    { key: 'assumptions', label: '가정 (Assumptions)' },
+  ];
 
   return (
     <div className={clsx('ml-' + depth * 4, 'mb-2')}>
       <div className={clsx('border rounded-xl overflow-hidden', config.bg, config.border)}>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center gap-3 p-3 text-left"
-        >
-          {expanded ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
+        <div className="w-full flex items-center gap-2 p-3">
+          <button onClick={() => setExpanded(!expanded)} className="flex-shrink-0">
+            {expanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+          </button>
           <span className={clsx('text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0', config.bg, config.border, config.text)}>
             {config.label}
           </span>
           {row.code && <span className="text-xs text-gray-400 flex-shrink-0">{row.code}</span>}
-          <span className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate">{row.narrative}</span>
-        </button>
+          <input
+            value={row.narrative}
+            onChange={(e) => onUpdate(row.id, { narrative: e.target.value })}
+            placeholder="내용을 입력하세요"
+            className="flex-1 min-w-0 text-sm font-medium text-gray-800 bg-transparent border border-transparent hover:border-gray-200 focus:border-[#8AA81E] focus:bg-white rounded px-1.5 py-0.5 focus:outline-none"
+          />
+          <button onClick={() => onDelete(row.id)} title="행 삭제" className="text-gray-300 hover:text-red-400 flex-shrink-0">
+            <Trash2 size={13} />
+          </button>
+        </div>
 
         {expanded && (
           <div className="border-t border-opacity-50 grid grid-cols-1 sm:grid-cols-3 gap-0">
-            {[
-              { label: '지표 (OVI)', value: row.indicators },
-              { label: '검증수단 (MOV)', value: row.verificationMeans },
-              { label: '가정 (Assumptions)', value: row.assumptions },
-            ].map((field, i) => (
-              <div key={field.label} className={clsx('p-3', i < 2 ? 'border-b sm:border-b-0 sm:border-r border-gray-200' : '')}>
+            {fields.map((field, i) => (
+              <div key={field.key} className={clsx('p-3', i < 2 ? 'border-b sm:border-b-0 sm:border-r border-gray-200' : '')}>
                 <div className="text-xs font-semibold text-gray-400 mb-1">{field.label}</div>
-                <div className="text-xs text-gray-700 leading-relaxed">{field.value || '—'}</div>
+                <textarea
+                  value={row[field.key] || ''}
+                  onChange={(e) => onUpdate(row.id, { [field.key]: e.target.value })}
+                  rows={2}
+                  placeholder="—"
+                  className="w-full text-xs text-gray-700 leading-relaxed bg-transparent border border-transparent hover:border-gray-200 focus:border-[#8AA81E] focus:bg-white rounded px-1 py-0.5 focus:outline-none resize-none"
+                />
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {row.children?.map((child) => (
-        <PDMRowCard key={child.id} row={child} depth={depth + 1} />
+      {expanded && row.children?.map((child) => (
+        <PDMRowCard key={child.id} row={child} depth={depth + 1} onUpdate={onUpdate} onAddChild={onAddChild} onDelete={onDelete} />
       ))}
+
+      {expanded && childLevel && (
+        <button
+          onClick={() => onAddChild(row)}
+          className="flex items-center gap-1 text-xs text-[#8AA81E] border border-dashed border-[#D9E6B7] rounded-lg px-2.5 py-1 hover:bg-[#EEF5D6] transition-colors mt-1 mb-2"
+          style={{ marginLeft: (depth + 1) * 16 }}
+        >
+          <Plus size={11} /> {LEVEL_LABEL[childLevel]} 추가
+        </button>
+      )}
     </div>
   );
 }
@@ -103,6 +190,43 @@ export default function PlanPdmPage() {
       .finally(() => setIsGenerating(false));
   };
 
+  function persistPdm(updated: PDMRow[]) {
+    if (!structure) return;
+    setStructure({ ...structure, pdm: updated });
+    updateSection('plan-pdm', JSON.stringify(updated), updated.length > 0 ? 'in-progress' : 'empty');
+  }
+
+  function handleUpdateField(id: string, patch: Partial<PDMRow>) {
+    persistPdm(updateRowField(pdm, id, patch));
+  }
+
+  function handleAddChild(parentRow: PDMRow) {
+    const childLevel = CHILD_LEVEL[parentRow.level];
+    if (!childLevel) return;
+    const index = (parentRow.children?.length || 0) + 1;
+    const newRow: PDMRow = {
+      id: crypto.randomUUID(),
+      level: childLevel,
+      code: genCode(parentRow.code, childLevel, index),
+      narrative: '',
+      indicators: '',
+      verificationMeans: '',
+      assumptions: '',
+      children: childLevel === 'activity' ? undefined : [],
+    };
+    persistPdm(addChildRow(pdm, parentRow.id, newRow));
+  }
+
+  function handleAddOutcome() {
+    const root = pdm[0];
+    if (!root) return;
+    handleAddChild(root);
+  }
+
+  function handleDeleteRow(id: string) {
+    persistPdm(deleteRowById(pdm, id));
+  }
+
   useEffect(() => {
     if (pdm.length > 0 || attempted.current) return;
     attempted.current = true;
@@ -135,7 +259,7 @@ export default function PlanPdmPage() {
               <strong>구조:</strong> Impact(1개) → Outcome(2~3개) → Output(각 1~3개) → Activity(각 1~4개)<br />
               <strong>번호:</strong> Outcome 1, 2, 3 / Output 1.1, 1.2 / Activity 1.1.1, 1.1.2<br />
               <strong>열:</strong> 프로젝트 요약 / 지표(OVI) / 지표 증명수단(MoV) / 가정(Assumptions)<br />
-              ※ 각 항목 클릭 시 세부 내용 확인 가능
+              ※ 제목·지표 칸을 클릭하면 바로 수정할 수 있고, 각 항목 옆 + 버튼으로 하위 행을 추가할 수 있습니다.
             </div>
           </Collapsible>
         </div>
@@ -165,10 +289,13 @@ export default function PlanPdmPage() {
               ))}
             </div>
             {pdm.map((row) => (
-              <PDMRowCard key={row.id} row={row} />
+              <PDMRowCard key={row.id} row={row} onUpdate={handleUpdateField} onAddChild={handleAddChild} onDelete={handleDeleteRow} />
             ))}
-            <button className="flex items-center gap-1.5 text-sm text-[#8AA81E] border border-dashed border-[#D9E6B7] rounded-lg px-4 py-2 hover:bg-[#EEF5D6] transition-colors mt-3">
-              <Plus size={14} /> 행 추가
+            <button
+              onClick={handleAddOutcome}
+              className="flex items-center gap-1.5 text-sm text-[#8AA81E] border border-dashed border-[#D9E6B7] rounded-lg px-4 py-2 hover:bg-[#EEF5D6] transition-colors mt-3"
+            >
+              <Plus size={14} /> Outcome 행 추가
             </button>
           </div>
         )}
