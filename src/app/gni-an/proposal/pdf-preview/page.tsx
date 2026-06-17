@@ -40,7 +40,7 @@ function PageBreakOverlay({ pageRef, orientation }: { pageRef: React.RefObject<H
   return (
     <>
       {breaks.map((y, i) => (
-        <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: y, pointerEvents: 'none', zIndex: 5 }}>
+        <div key={i} className="pdf-preview-only" style={{ position: 'absolute', left: 0, right: 0, top: y, pointerEvents: 'none', zIndex: 5 }}>
           <div style={{ borderTop: '2px dashed #ef4444' }} />
           <span style={{ position: 'absolute', right: 6, top: 2, fontSize: 8, fontWeight: 700, color: '#ef4444', background: '#fff', padding: '1px 5px', borderRadius: 3, border: '1px solid #fecaca' }}>
             ✂ 페이지 구분
@@ -63,7 +63,7 @@ function DocPage({ children, style, landscape = false }: { children: ReactNode; 
       style={{ position: 'relative', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', marginBottom: 10, ...style }}
     >
       {landscape && (
-        <span style={{ position: 'absolute', left: 6, top: 6, fontSize: 8, fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 3, padding: '1px 5px', zIndex: 6 }}>
+        <span className="pdf-preview-only" style={{ position: 'absolute', left: 6, top: 6, fontSize: 8, fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 3, padding: '1px 5px', zIndex: 6 }}>
           ⬓ 가로 페이지로 출력됨
         </span>
       )}

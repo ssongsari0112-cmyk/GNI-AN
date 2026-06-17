@@ -22,6 +22,8 @@ export async function exportPagesToPdf(container: HTMLElement, filename: string)
       scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
+      // 페이지 구분선·가로 페이지 안내 배지 등 미리보기 전용 오버레이는 실제 출력에서 제외
+      ignoreElements: (el) => el.classList?.contains('pdf-preview-only'),
     });
     if (canvas.width === 0 || canvas.height === 0) continue;
 
