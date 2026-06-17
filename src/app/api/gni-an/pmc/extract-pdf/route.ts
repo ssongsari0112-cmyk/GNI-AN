@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,15 +12,12 @@ export async function POST(req: NextRequest) {
     if (!file.name.toLowerCase().endsWith('.pdf'))
       return NextResponse.json({ error: 'PDF 파일만 업로드 가능합니다.' }, { status: 400 });
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = new Uint8Array(await file.arrayBuffer());
 
-    // pdf-parse v2: PDFParse class takes { data, verbosity } options
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer, verbosity: 0 });
-    const result = await parser.getText();
-
-    const text: string = result.text || '';
-    const numPages: number = result.total || 0;
+    // unpdf: 워커 없이 동작하는 서버리스 친화적 PDF 텍스트 추출
+    const pdf = await getDocumentProxy(buffer);
+    const { text: pages, totalPages } = await extractText(pdf, { mergePages: false });
+    const text = pages.join('\n\n');
 
     // 최대 50,000자로 제한
     const trimmedText = text.length > 50000 ? text.slice(0, 50000) + '\n\n[이하 내용 생략됨]' : text;
@@ -27,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       fileName: file.name,
-      numPages,
+      numPages: totalPages,
       textLength: text.length,
       text: trimmedText,
     });
