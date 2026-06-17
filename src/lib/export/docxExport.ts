@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalMergeType, VerticalAlign } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalMergeType, VerticalAlign, PageOrientation } from 'docx';
 import { htmlToDocxElements } from './htmlToDocx';
 import { PROPOSAL_SECTIONS, SECTOR_OPTIONS } from '@/types';
 import type { Project, IdeationData, ProjectSummary, StructureData, ProposalSection, ScheduleActivity, ProjectDetails, PDMRow } from '@/types';
@@ -248,8 +248,23 @@ function summaryBlock(label: string, value?: string): Paragraph[] {
   ];
 }
 
+const PDM_LEVEL_LABEL: Record<string, string> = {
+  impact: '영향 (Impact)',
+  purpose: '사업목적 (Purpose)',
+  outcome: '성과 (Outcome)',
+  output: '산출물 (Output)',
+  activity: '활동 (Activity)',
+};
+
+const PDM_LEVEL_SHADE: Record<string, string> = {
+  impact: 'D4D4D4',
+  purpose: 'E0E0E0',
+  outcome: 'ECECEC',
+  output: 'F5F5F5',
+  activity: 'FFFFFF',
+};
+
 function buildPdmTable(pdm: PDMRow[]): Table {
-  const levelLabels: Record<string, string> = { impact: '영향(Impact)', purpose: '사업목적(Purpose)', outcome: '산출물(Outputs)', output: '개발활동(Activities)' };
   const flatRows: (PDMRow & { indent: number })[] = [];
   function flatten(row: PDMRow, indent = 0) {
     flatRows.push({ ...row, indent });
@@ -257,22 +272,47 @@ function buildPdmTable(pdm: PDMRow[]): Table {
   }
   pdm.forEach((r) => flatten(r));
 
-  const rows: TableRow[] = [
-    new TableRow({
-      children: ['프로젝트 요약', '내용', '지표', '지표 증명 수단', '가정'].map((h) =>
-        new TableCell({ shading: { fill: 'F0F0F0' }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: h, bold: true })] })] })
-      ),
-    }),
-  ];
+  const headerRow = new TableRow({
+    children: [
+      { text: '프로젝트 요약', size: 32 },
+      { text: '지표 (OVI)', size: 23 },
+      { text: '지표 증명수단 (MoV)', size: 23 },
+      { text: '가정 (Assumptions)', size: 22 },
+    ].map(({ text, size }) =>
+      new TableCell({
+        shading: { fill: 'D4D4D4' },
+        width: { size, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold: true })] })],
+      })
+    ),
+  });
+
+  const rows: TableRow[] = [headerRow];
 
   flatRows.forEach((row) => {
+    const shade = PDM_LEVEL_SHADE[row.level] || 'FFFFFF';
+    const indent = { left: row.indent * 200 };
     rows.push(new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: levelLabels[row.level] || row.level, bold: true })] })] }),
-        new TableCell({ children: [new Paragraph(row.narrative || '')] }),
-        new TableCell({ children: [new Paragraph(row.indicators || '')] }),
-        new TableCell({ children: [new Paragraph(row.verificationMeans || '')] }),
-        new TableCell({ children: [new Paragraph(row.assumptions || '')] }),
+        new TableCell({
+          shading: { fill: shade },
+          children: [
+            new Paragraph({
+              indent,
+              spacing: { after: 40 },
+              children: [new TextRun({
+                text: `${PDM_LEVEL_LABEL[row.level] || row.level}${row.code ? ` · ${row.code}` : ''}`,
+                bold: true,
+                size: 16,
+                color: '555555',
+              })],
+            }),
+            new Paragraph({ indent, text: row.narrative || '' }),
+          ],
+        }),
+        new TableCell({ shading: { fill: shade }, children: [new Paragraph(row.indicators || '')] }),
+        new TableCell({ shading: { fill: shade }, children: [new Paragraph(row.verificationMeans || '')] }),
+        new TableCell({ shading: { fill: shade }, children: [new Paragraph(row.assumptions || '')] }),
       ],
     }));
   });
@@ -341,29 +381,48 @@ export async function exportToDocx(data: ExportData, filename: string) {
     children.push(...summaryBlock('지속가능성', summary.risks?.sustainabilityPlan));
   }
 
-  // PDM
-  if (structure?.pdm && structure.pdm.length > 0) {
-    children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, text: '사업 논리 모형 (Project Design Matrix)' }));
-    children.push(buildPdmTable(structure.pdm));
+  // PDM — 가로 방향 별도 구역(섹션)으로 분리
+  const hasPdm = !!(structure?.pdm && structure.pdm.length > 0);
+  const pdmChildren: (Paragraph | Table)[] = [];
+  if (hasPdm) {
+    pdmChildren.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, text: '2. 사업 추진 계획' }),
+      new Paragraph({ heading: HeadingLevel.HEADING_2, text: '가. 사업 논리 모형 (Project Design Matrix, PDM)' }),
+    );
+    pdmChildren.push(buildPdmTable(structure!.pdm));
   }
 
-  // 17개 섹션
+  // 17개 섹션 (PDM은 위에서 별도 가로 구역으로 이미 처리했으므로 제외)
+  const afterChildren: (Paragraph | Table)[] = [];
   PROPOSAL_SECTIONS.forEach((section) => {
+    if (section.id === 'plan-pdm') return;
     const isSchedule = section.id === 'monitoring-schedule';
     const content = sections[section.id]?.content;
     if (isSchedule ? scheduleActivities.length === 0 : !content) return;
 
-    children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, text: `${section.code}. ${section.title}` }));
+    afterChildren.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, text: `${section.code}. ${section.title}` }));
     if (isSchedule) {
-      children.push(buildScheduleTable(scheduleActivities, project?.startDate || '', project?.endDate || ''));
+      afterChildren.push(buildScheduleTable(scheduleActivities, project?.startDate || '', project?.endDate || ''));
     } else {
-      children.push(...htmlToDocxElements(content));
+      afterChildren.push(...htmlToDocxElements(content));
     }
   });
 
-  const doc = new Document({
-    sections: [{ properties: {}, children }],
-  });
+  // A4 기준 용지 크기(twips) — LANDSCAPE 구역에서는 width/height가 자동으로 서로 바뀜
+  const PAGE_WIDTH = 11906;
+  const PAGE_HEIGHT = 16838;
+  const portraitPage = { size: { orientation: PageOrientation.PORTRAIT, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
+  const landscapePage = { size: { orientation: PageOrientation.LANDSCAPE, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
+
+  const docSections = hasPdm
+    ? [
+        { properties: { page: portraitPage }, children },
+        { properties: { page: landscapePage }, children: pdmChildren },
+        { properties: { page: portraitPage }, children: afterChildren },
+      ]
+    : [{ properties: { page: portraitPage }, children: [...children, ...afterChildren] }];
+
+  const doc = new Document({ sections: docSections });
 
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
