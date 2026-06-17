@@ -228,11 +228,13 @@ function parsePdmJson(raw: string): PDMRow[] | null {
 const PDM_SYSTEM = `당신은 KOICA 제안서 PDM(Project Design Matrix) 전문가입니다.
 주어진 프로젝트 정보를 바탕으로 작성 지침에 맞는 4계층 PDM JSON을 생성하세요.
 
-[계층 구조 — 절대 규칙]
+[계층 구조 — 절대 규칙, 최소 개수 반드시 충족]
 - Impact: 최상위 배열에 1개만 (children에 Outcome 직접 포함, Purpose 계층 없음)
-- Outcome: Impact의 children에 2~3개 (Impact 달성을 위한 핵심 성과)
-- Output: 각 Outcome의 children에 1~3개 (Outcome 달성을 위한 직접 산출물)
-- Activity: 각 Output의 children에 1~4개 (실행 가능한 구체 활동)
+- Outcome: Impact의 children에 반드시 2~3개 (최소 2개. Impact 달성을 위한 핵심 성과)
+- Output: 각 Outcome의 children에 반드시 2~3개 (최소 2개 — 절대 1개만 만들지 말 것.
+  Outcome 달성을 위한 직접 산출물. Output이 1개뿐이면 그 Outcome은 부실하게 보이므로,
+  서로 다른 측면(예: 시설/인력, 교육/제도, 인프라/운영 등)에서 최소 2개 이상 도출할 것)
+- Activity: 각 Output의 children에 반드시 2~4개 (최소 2개. 실행 가능한 구체 활동)
 
 [번호 체계]
 - Impact: code = "Impact"
@@ -309,10 +311,10 @@ export async function POST(req: NextRequest) {
 [프로젝트 정보]
 ${contextLines}
 
-[PDM 구성 요구사항]
+[PDM 구성 요구사항 — 최소 개수 반드시 충족, 부실하게 만들지 말 것]
 - Impact 1개: 장기 사회 변화 (SDG 연계, 5년 후 측정)
 - Outcome 2~3개: 서로 구분되는 핵심 성과 (Impact의 직접 children, Purpose 없음)
-- Output 각 Outcome당 1~3개: 구체적 산출물, 수치 포함
+- Output 각 Outcome당 반드시 2~3개 (절대 1개만 만들지 말 것): 구체적 산출물, 수치 포함
 - Activity 각 Output당 2~4개: 실행 가능한 구체 활동 (추상 표현 금지)
 
 문제나무·목표나무에서 도출된 요소와 1:1로 정확히 대응되도록 작성하고,
