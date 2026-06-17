@@ -12,7 +12,7 @@ export default function OperationBudgetPage() {
   const [dragOver, setDragOver] = useState(false);
 
   function handleFile(file: File) {
-    if (!file.name.match(/\.(xlsm|xlsx)$/)) {
+    if (!file.name.match(/\.(xlsm|xlsx)$/i)) {
       alert('.xlsm 또는 .xlsx 파일만 업로드 가능합니다.');
       return;
     }

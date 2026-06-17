@@ -3,7 +3,7 @@ import { streamText, isOpenAIConfigured } from '@/lib/api/openai';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sectionId, sectionTitle, content, question, projectContext } = await req.json();
+    const { sectionId, sectionTitle, content, question, projectContext, imageDataUrl } = await req.json();
 
     const systemPrompt = `당신은 KOICA 시민사회협력사업 제안서 작성 전문 AI 어시스턴트입니다.
 현재 "${sectionTitle}" 섹션 작성을 돕고 있습니다.
@@ -40,15 +40,22 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const messages = [
-            {
-              role: 'user' as const,
-              content: `${contextInfo}
+          const questionText = `${contextInfo}
 
 현재 작성된 내용:
 ${content || '(아직 작성되지 않았습니다)'}
 
-질문: ${question}`,
+질문: ${question}${imageDataUrl ? '\n\n(사용자가 참고용 이미지를 첨부했습니다. 이미지 내용을 분석하여 답변에 반영하세요.)' : ''}`;
+
+          const messages = [
+            {
+              role: 'user' as const,
+              content: imageDataUrl
+                ? [
+                    { type: 'text' as const, text: questionText },
+                    { type: 'image_url' as const, image_url: { url: imageDataUrl } },
+                  ]
+                : questionText,
             },
           ];
           await streamText(messages, systemPrompt, (chunk) => {

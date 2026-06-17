@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useProjectStore } from '@/lib/store/projectStore';
 import type { ScheduleActivity } from '@/types';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function generateMonths(startDate: string, endDate: string): string[] {
@@ -114,6 +114,14 @@ export default function MonitoringSchedulePage() {
     setNewRowName('');
   }
 
+  function renameActivity(actId: string, name: string) {
+    setActivities((prev) => prev.map((a) => (a.id === actId ? { ...a, name } : a)));
+  }
+
+  function removeActivity(actId: string) {
+    setActivities((prev) => prev.filter((a) => a.id !== actId));
+  }
+
   function handleSave() {
     setScheduleActivities(activities);
     updateSection('monitoring-schedule', JSON.stringify(activities), activities.length > 0 ? 'completed' : 'empty');
@@ -157,7 +165,7 @@ export default function MonitoringSchedulePage() {
               <tr className="bg-[#F7F8F2]">
                 <th rowSpan={2} className="w-6 border-b border-r border-gray-100 px-1 py-2 text-gray-400 font-normal align-middle">선택</th>
                 <th rowSpan={2} className="w-10 border-b border-r border-gray-100 px-1 py-2 text-gray-500 font-medium align-middle">코드</th>
-                <th rowSpan={2} className="w-32 border-b border-r border-gray-100 px-2 py-2 text-gray-500 font-medium text-left align-middle">활동명</th>
+                <th rowSpan={2} className="w-40 border-b border-r border-gray-100 px-2 py-2 text-gray-500 font-medium text-left align-middle">활동명</th>
                 {yearGroups.map((g) => (
                   <th key={g.year} colSpan={g.months.length} className="border-b border-r border-gray-200 px-1 py-1.5 text-center text-[#5a7012] font-semibold bg-[#EEF5D6]">
                     {g.year}차년도
@@ -179,8 +187,21 @@ export default function MonitoringSchedulePage() {
                     <input type="checkbox" className="accent-[#8AA81E]" />
                   </td>
                   <td className="border-b border-r border-gray-100 px-1 py-1 text-gray-400 text-center">{act.code}</td>
-                  <td className="border-b border-r border-gray-100 px-2 py-1 text-gray-700">
-                    <div className="truncate">{act.name}</div>
+                  <td className="border-b border-r border-gray-100 px-1 py-1 text-gray-700">
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={act.name}
+                        onChange={(e) => renameActivity(act.id, e.target.value)}
+                        className="flex-1 min-w-0 bg-transparent border border-transparent hover:border-gray-200 focus:border-[#8AA81E] focus:bg-white rounded px-1 py-0.5 text-xs focus:outline-none"
+                      />
+                      <button
+                        onClick={() => removeActivity(act.id)}
+                        title="활동 삭제"
+                        className="text-gray-300 hover:text-red-400 flex-shrink-0"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
                   </td>
                   {months.map((_, idx) => (
                     <td

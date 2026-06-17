@@ -107,6 +107,7 @@ export function SectionPage({
             outcomes: structure.objectiveTree.outcomes,
           })
         : '',
+      pdm: structure?.pdm && structure.pdm.length > 0 ? JSON.stringify(structure.pdm) : '',
       expertInsights,
       projectSummary: (ideationAnalysis as unknown as Record<string, string> | null)?.summary || ideation?.idea?.slice(0, 500) || '',
     };

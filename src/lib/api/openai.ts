@@ -21,7 +21,13 @@ function getClient(): OpenAI {
   return client;
 }
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type MsgContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+type Msg =
+  | { role: 'user'; content: string | MsgContentPart[] }
+  | { role: 'assistant'; content: string };
 
 export async function generateText(messages: Msg[], systemPrompt: string): Promise<string> {
   const openai = getClient();

@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings } from 'lucide-react';
+import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Wand2, Loader2, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
@@ -166,11 +166,31 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 }
 
 function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTitle: string }) {
-  const { sections, ideation, project, structure } = useProjectStore();
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const { sections, ideation, project, structure, updateSection, updateSectionAiDraft } = useProjectStore();
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string }[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [revising, setRevising] = useState(false);
+  const [revisedHtml, setRevisedHtml] = useState<string | null>(null);
+  const [reviseError, setReviseError] = useState('');
+  const [applied, setApplied] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const currentContent = sections[sectionId]?.content || '';
+
+  function handleImageSelect(file: File) {
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 첨부할 수 있습니다.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('이미지 파일은 5MB 이하만 첨부할 수 있습니다.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAttachedImage(reader.result as string);
+    reader.readAsDataURL(file);
+  }
 
   const quickQuestions: Record<string, string[]> = {
     'basis-background': ['배경 분석 충분해?', 'SDGs/CPS 연계 명확해?', '부족한 부분은?', '예시 보여줘'],
@@ -185,10 +205,12 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
   async function sendMessage(text?: string) {
     const question = text || input.trim();
     if (!question || streaming) return;
+    const imageToSend = attachedImage;
 
-    const userMsg = { role: 'user' as const, content: question };
+    const userMsg = { role: 'user' as const, content: question, image: imageToSend || undefined };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setAttachedImage(null);
     setStreaming(true);
 
     const assistantPlaceholder = { role: 'assistant' as const, content: '' };
@@ -204,6 +226,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
           content: currentContent,
           question,
           projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
+          imageDataUrl: imageToSend || undefined,
         }),
       });
 
@@ -229,6 +252,48 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
       setStreaming(false);
     }
   }
+
+  async function reviseWithLastFeedback() {
+    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === 'assistant' && m.content);
+    if (!lastAssistantMsg || revising) return;
+
+    setRevising(true);
+    setReviseError('');
+    setApplied(false);
+    setRevisedHtml(null);
+
+    try {
+      const res = await fetch('/api/gni-an/proposal/section/revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionTitle,
+          content: currentContent,
+          feedback: lastAssistantMsg.content,
+          projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.html) {
+        setRevisedHtml(data.html);
+      } else {
+        setReviseError(data.error || '수정안을 생성하지 못했습니다.');
+      }
+    } catch {
+      setReviseError('수정 중 오류가 발생했습니다.');
+    } finally {
+      setRevising(false);
+    }
+  }
+
+  function applyRevision() {
+    if (!revisedHtml) return;
+    updateSection(sectionId, revisedHtml, 'in-progress');
+    updateSectionAiDraft(sectionId, revisedHtml);
+    setApplied(true);
+  }
+
+  const hasAssistantReply = messages.some((m) => m.role === 'assistant' && m.content);
 
   return (
     <div className="flex flex-col h-full bg-white border-l border-[#D9E6B7]">
@@ -258,11 +323,15 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {true && (
+        {messages.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-4">위 빠른 질문을 클릭하거나<br />자유롭게 질문해주세요.</p>
         )}
         {messages.map((msg, i) => (
           <div key={i} className={clsx('text-xs rounded-xl px-3 py-2 leading-relaxed', msg.role === 'user' ? 'bg-[#8AA81E] text-white ml-4' : 'bg-gray-100 text-gray-700 mr-4')}>
+            {msg.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={msg.image} alt="첨부 이미지" className="rounded-lg mb-1.5 max-h-32 object-cover" />
+            )}
             {msg.content ? (
               msg.role === 'assistant' ? (
                 <MarkdownText content={msg.content} className="text-xs" />
@@ -276,9 +345,80 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
         ))}
       </div>
 
+      {/* 직접 수정 적용 */}
+      {hasAssistantReply && !streaming && (
+        <div className="px-3 py-2 border-t border-gray-50">
+          {!revisedHtml ? (
+            <button
+              onClick={reviseWithLastFeedback}
+              disabled={revising}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-[#5a7012] bg-[#EEF5D6] border border-[#D9E6B7] rounded-lg px-3 py-2 hover:bg-[#D9E6B7] transition-colors disabled:opacity-50"
+            >
+              {revising ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+              {revising ? '본문 수정 중...' : '마지막 답변대로 본문 직접 수정'}
+            </button>
+          ) : (
+            <div className="border border-[#D9E6B7] rounded-lg overflow-hidden">
+              <div className="bg-[#F7F8F2] px-2.5 py-1.5 text-[11px] font-semibold text-[#5a7012] flex items-center justify-between">
+                수정 제안 미리보기
+                <button onClick={() => setRevisedHtml(null)} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
+              </div>
+              <div
+                className="doc-content px-2.5 py-2 max-h-40 overflow-y-auto text-[11px] leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: revisedHtml }}
+              />
+              <div className="flex gap-1.5 p-2 border-t border-gray-100">
+                {applied ? (
+                  <span className="flex-1 flex items-center justify-center gap-1 text-xs text-[#8AA81E] font-medium py-1">
+                    <Check size={12} /> 본문에 적용됨
+                  </span>
+                ) : (
+                  <>
+                    <button onClick={applyRevision} className="flex-1 bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg px-2 py-1.5 text-xs font-medium transition-colors">
+                      적용하기
+                    </button>
+                    <button onClick={() => setRevisedHtml(null)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1.5 hover:bg-gray-50">
+                      취소
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {reviseError && <p className="text-xs text-red-400 mt-1.5">{reviseError}</p>}
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-3 border-t border-gray-100">
+        {attachedImage && (
+          <div className="relative inline-block mb-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={attachedImage} alt="첨부 미리보기" className="h-14 rounded-lg border border-gray-200 object-cover" />
+            <button
+              onClick={() => setAttachedImage(null)}
+              className="absolute -top-1.5 -right-1.5 bg-white border border-gray-200 rounded-full p-0.5 text-gray-400 hover:text-red-400"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        )}
         <div className="flex gap-1.5">
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            disabled={streaming}
+            title="이미지 첨부"
+            className="flex-shrink-0 border border-gray-200 rounded-lg p-1.5 text-gray-400 hover:text-[#8AA81E] hover:border-[#8AA81E] transition-colors disabled:opacity-40"
+          >
+            <Paperclip size={13} />
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSelect(f); e.target.value = ''; }}
+          />
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}

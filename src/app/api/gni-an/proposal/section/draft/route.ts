@@ -49,6 +49,7 @@ function formatContext(ctx: Record<string, string>): string {
     ctx.expectedOutcomes     && `기대 성과: ${ctx.expectedOutcomes}`,
     ctx.problemTree    && `문제 분석 요약: ${ctx.problemTree}`,
     ctx.objectiveTree  && `목표 체계 요약: ${ctx.objectiveTree}`,
+    ctx.pdm            && `사업 논리 모형(PDM) 전체 구조 — 아래 Outcome/Output/Activity를 빠짐없이 반영: ${ctx.pdm}`,
     ctx.expertInsights && `전문가 컨설팅 핵심 내용: ${ctx.expertInsights}`,
     ctx.projectSummary && `기획 요약: ${ctx.projectSummary}`,
   ].filter(Boolean);
@@ -342,28 +343,34 @@ HTML만 출력:`,
 ${formatContext(ctx)}
 
 "I-2 나. 세부 추진방안" 섹션을 작성하세요.
-PDM의 Outcome→Output→Activity 계층 구조를 반영하여 각 활동의 세부 계획을 기술하세요.
+${ctx.pdm ? '위에 제공된 PDM(사업 논리 모형) JSON에 들어있는 모든 Outcome·Output·Activity를 단 하나도 빠짐없이 반영하세요. PDM에 없는 Outcome/Output을 새로 만들지 말고, PDM 구조와 번호(code)를 그대로 따라가세요.' : 'PDM의 Outcome→Output→Activity 계층 구조를 반영하여 각 활동의 세부 계획을 기술하세요.'}
+이 섹션은 제안서에서 가장 분량이 많고 구체적이어야 하는 핵심 섹션입니다. 절대 짧게 요약하지 마세요.
 
-[작성 구조]
-성과 1 (Outcome 1): [제목] <h3>
-  산출 1.1 (Output 1.1): [제목] <h3>
-    활동 1.1.1: [활동명] <strong>
-    - 활동 대상: N명 (남성 N명, 여성 N명)
-    - 활동 빈도: 차년도별 횟수
-    - 수행 주체: 굿네이버스 / 현지 파트너
-    - 세부 내용: 구체적 방법, 도구, 절차 (3~4문장)
-    - 역할 분담: 한국 측 / 현지 측
-    활동 1.1.2: [활동명] (동일 형식)
-  산출 1.2 (Output 1.2): [제목] <h3>
-    활동 1.2.1, 1.2.2
+[분량 기준 — 반드시 충족]
+- Outcome 2~3개, 각 Outcome당 Output 1~3개, 각 Output당 Activity 2~4개를 모두 작성 (PDM이 있으면 PDM의 개수를 그대로 따름)
+- 활동(Activity) 1개당 최소 200자 이상의 "세부 내용" 서술 포함 (방법론·도구·절차·차수별 진행 방식을 구체적으로)
+- 절대 "~을 실시함", "~을 지원함" 같은 한 줄 요약으로 끝내지 말 것
 
-성과 2 (Outcome 2): [제목] <h3>
-  산출 2.1, 2.2 (동일 형식)
+[작성 구조 — 활동마다 이 5개 항목을 모두 포함]
+성과 1 (Outcome 1): [PDM의 narrative 그대로] <h3>
+  산출 1.1 (Output 1.1): [PDM의 narrative 그대로] <h3>
+    <p><strong>활동 1.1.1. [활동명]</strong></p>
+    <ul>
+    <li><strong>활동 대상:</strong> N명 (남성 N명, 여성 N명) — 수혜자 산정 근거 포함</li>
+    <li><strong>활동 빈도:</strong> 1차년도 N회, 2차년도 N회, 3차년도 N회 (총 N회)</li>
+    <li><strong>수행 주체:</strong> 굿네이버스(역할 구체 기술) / 현지 파트너(역할 구체 기술)</li>
+    <li><strong>세부 내용:</strong> 200자 이상. 모듈/단계 구성, 사용 교재·도구, 진행 절차, 측정 방법, 현지화 고려사항까지 서술</li>
+    <li><strong>역할 분담:</strong> 한국 측(구체 업무) / 현지 측(구체 업무)</li>
+    </ul>
+    활동 1.1.2 (동일 형식으로 반복)
+  산출 1.2 (동일 형식)
+
+성과 2, 3 (Outcome 2, 3) — 동일 형식으로 PDM에 있는 개수만큼 모두 작성
 
 [작성 지시]
 - 활동마다 수혜자 수, 성별 비율, 연차별 실시 횟수 반드시 포함
-- 각 활동이 어떤 Output에 기여하는지 번호로 연결
-- 실제 현장에서 실행 가능한 구체적 방법론 기술
+- 각 활동이 어떤 Output에 기여하는지 번호로 연결 (예: 활동 1.1.1 → Output 1.1)
+- 실제 현장에서 실행 가능한 구체적 방법론 기술 (추상적 표현 금지)
 HTML만 출력:`,
 
   'plan-crosscutting': (ctx) => `
@@ -1093,6 +1100,7 @@ export async function POST(req: NextRequest) {
       expectedOutcomes:    projectContext?.expectedOutcomes    || '',
       problemTree:         projectContext?.problemTree         || '',
       objectiveTree:       projectContext?.objectiveTree       || '',
+      pdm:                 projectContext?.pdm                 || '',
       expertInsights:      projectContext?.expertInsights      || '',
       projectSummary:      projectContext?.projectSummary      || '',
       pmcSourceText,
