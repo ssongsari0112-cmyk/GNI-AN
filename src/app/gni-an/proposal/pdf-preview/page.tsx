@@ -1,13 +1,67 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
 import type { ScheduleActivity, ProblemTreeNode } from '@/types';
 import { ArrowLeft, Download, FileText, FileType } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { exportPagesToPdf } from '@/lib/export/pdfExport';
 import { exportToDocx } from '@/lib/export/docxExport';
+import { computePageBreaks, getPreviewPageHeightPx, PDF_ATOMIC_CLASS } from '@/lib/export/pdfPageBreaks';
+
+/* ── PDF 페이지 구분선 오버레이 — 실제 내보내기와 동일한 기준으로 어디서 페이지가 나뉘는지 미리 표시 ── */
+function PageBreakOverlay({ pageRef }: { pageRef: React.RefObject<HTMLDivElement | null> }) {
+  const [breaks, setBreaks] = useState<number[]>([]);
+
+  useEffect(() => {
+    function recompute() {
+      const el = pageRef.current;
+      if (!el) return;
+      const widthPx = el.offsetWidth || 794;
+      const pageHeightPx = getPreviewPageHeightPx(widthPx);
+      setBreaks(computePageBreaks(el, pageHeightPx));
+    }
+    const t1 = setTimeout(recompute, 80);
+    const t2 = setTimeout(recompute, 500);
+    window.addEventListener('resize', recompute);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', recompute);
+    };
+  }, [pageRef]);
+
+  if (breaks.length === 0) return null;
+
+  return (
+    <>
+      {breaks.map((y, i) => (
+        <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: y, pointerEvents: 'none', zIndex: 5 }}>
+          <div style={{ borderTop: '2px dashed #ef4444' }} />
+          <span style={{ position: 'absolute', right: 6, top: 2, fontSize: 8, fontWeight: 700, color: '#ef4444', background: '#fff', padding: '1px 5px', borderRadius: 3, border: '1px solid #fecaca' }}>
+            ✂ 페이지 구분
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** 모든 .doc-page 공통 래퍼 — 페이지 구분선 오버레이 + 화면상 페이지 카드 구분(여백/그림자) 포함 */
+function DocPage({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      ref={ref}
+      className="doc-page"
+      style={{ position: 'relative', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', marginBottom: 10, ...style }}
+    >
+      {children}
+      <PageBreakOverlay pageRef={ref} />
+    </div>
+  );
+}
 
 /* ── 섹션 파트 구분 ───────────────────────────── */
 const PARTS = [
@@ -440,7 +494,7 @@ export default function PDFPreviewPage() {
             ? `- ${projectDetails.programType}사업 사업실행계획서 -`
             : '- 사업제안서 -';
           return (
-            <div className="doc-page" style={{ background: 'white', minHeight: 1123, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '80px 60px', pageBreakAfter: 'always' }}>
+            <DocPage style={{ background: 'white', minHeight: 1123, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '80px 60px' }}>
               {/* 중앙 테두리 박스 */}
               <div style={{ border: '2px solid #111', padding: '52px 64px', textAlign: 'center', minWidth: 420, maxWidth: 520 }}>
                 {location && (
@@ -463,12 +517,12 @@ export default function PDFPreviewPage() {
                 <p>{[field, org].filter(Boolean).join(' / ')}</p>
                 <p>{dateStr}</p>
               </div>
-            </div>
+            </DocPage>
           );
         })()}
 
         {/* ── 목차 ── */}
-        <div className="doc-page" style={{ background: 'white', padding: '60px 60px', pageBreakAfter: 'always' }}>
+        <DocPage style={{ background: 'white', padding: '60px 60px' }}>
           <h2 style={{ fontSize: '14pt', fontWeight: 700, borderBottom: '2px solid #111', paddingBottom: 8, marginBottom: 24 }}>목 차</h2>
           {PROPOSAL_SECTIONS.map((section) => {
             const filled = isSectionFilled(section.id);
@@ -481,11 +535,11 @@ export default function PDFPreviewPage() {
               </div>
             );
           })}
-        </div>
+        </DocPage>
 
         {/* ── 사업개요서 ── */}
         {summary && (
-          <div className="doc-page" style={{ background: 'white', padding: '60px 60px', pageBreakAfter: 'always' }}>
+          <DocPage style={{ background: 'white', padding: '60px 60px' }}>
             <h2 style={{ fontSize: '14pt', fontWeight: 700, borderBottom: '2px solid #111', paddingBottom: 6, marginBottom: 20 }}>사업 개요</h2>
             <SummaryBlock label="사업명" value={summary.basicInfo?.title} />
             <SummaryBlock label="사업 요약" value={summary.basicInfo?.summary} />
@@ -500,7 +554,7 @@ export default function PDFPreviewPage() {
             <SummaryBlock label="파트너십 전략" value={summary.implementation?.partnershipStrategy} />
             <SummaryBlock label="리스크 관리" value={summary.risks?.mainRisks} />
             <SummaryBlock label="지속가능성" value={summary.risks?.sustainabilityPlan} />
-          </div>
+          </DocPage>
         )}
 
         {/* ── 17개 섹션 ── */}
@@ -532,15 +586,7 @@ export default function PDFPreviewPage() {
                   <p style={{ fontSize: '11pt', fontWeight: 700 }}>{part.title}</p>
                 </div>
               )}
-              <div
-                className="doc-page"
-                style={{
-                  background: 'white',
-                  padding: '48px 60px',
-                  // PDM은 테이블이 길어 여러 A4에 이어질 수 있으므로 pageBreakAfter 제거
-                  pageBreakAfter: isPdm ? 'auto' : 'always',
-                }}
-              >
+              <DocPage style={{ background: 'white', padding: '48px 60px' }}>
                 <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
                   {section.code}. {section.title}
                 </h3>
@@ -555,12 +601,12 @@ export default function PDFPreviewPage() {
                 ) : isProblemTree ? (
                   <>
                     {hasProblemTree && (
-                      <>
+                      <div className={PDF_ATOMIC_CLASS}>
                         <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>문제나무 (Problem Tree)</p>
                         <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
                           <ProblemTreePdfView tree={structure!.problemTree!} />
                         </div>
-                      </>
+                      </div>
                     )}
                     {content && (
                       <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
@@ -569,12 +615,12 @@ export default function PDFPreviewPage() {
                 ) : isObjTree ? (
                   <>
                     {hasObjTree && (
-                      <>
+                      <div className={PDF_ATOMIC_CLASS}>
                         <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>목표나무 (Objective Tree)</p>
                         <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
                           <ObjectiveTreePdfView tree={structure!.objectiveTree!} />
                         </div>
-                      </>
+                      </div>
                     )}
                     {content && (
                       <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
@@ -586,7 +632,7 @@ export default function PDFPreviewPage() {
                     dangerouslySetInnerHTML={{ __html: content }}
                   />
                 )}
-              </div>
+              </DocPage>
             </div>
           );
         })}
