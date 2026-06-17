@@ -176,6 +176,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
   const [reviseError, setReviseError] = useState('');
   const [applied, setApplied] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const currentContent = sections[sectionId]?.content || '';
 
   function handleImageSelect(file: File) {
@@ -190,6 +191,28 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
     const reader = new FileReader();
     reader.onload = () => setAttachedImage(reader.result as string);
     reader.readAsDataURL(file);
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleImageSelect(file);
+        }
+        break;
+      }
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+    if (file) handleImageSelect(file);
   }
 
   const quickQuestions: Record<string, string[]> = {
@@ -296,7 +319,17 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
   const hasAssistantReply = messages.some((m) => m.role === 'assistant' && m.content);
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-[#D9E6B7]">
+    <div
+      className="relative flex flex-col h-full bg-white border-l border-[#D9E6B7]"
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+    >
+      {dragOver && (
+        <div className="absolute inset-0 z-20 bg-[#EEF5D6]/90 border-2 border-dashed border-[#8AA81E] flex items-center justify-center pointer-events-none">
+          <p className="text-sm font-medium text-[#5a7012]">이미지를 여기에 놓으세요</p>
+        </div>
+      )}
       <div className="px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-[#8AA81E] flex items-center justify-center">
@@ -423,7 +456,8 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="질문하세요..."
+            onPaste={handlePaste}
+            placeholder="질문하세요... (이미지 Ctrl+V 붙여넣기 가능)"
             disabled={streaming}
             className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#8AA81E] disabled:bg-gray-50"
           />
@@ -435,7 +469,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
             <Send size={12} />
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">AI 응답은 참고용입니다. 직접 선택하여 반영하세요.</p>
+        <p className="text-xs text-gray-400 mt-1.5">캡처한 이미지를 붙여넣거나(Ctrl+V) 드래그해서 첨부할 수 있습니다.</p>
       </div>
     </div>
   );
