@@ -38,14 +38,14 @@ function PDMTable({ pdm }: { pdm: any[] }) {
   pdm.forEach((r) => flatten(r));
 
   const levelMeta: Record<string, { label: string; bg: string; textColor: string; bold: boolean }> = {
-    impact:   { label: '영향 (Impact)',        bg: '#ede9fe', textColor: '#4c1d95', bold: true },
-    purpose:  { label: '사업목적 (Purpose)',   bg: '#dbeafe', textColor: '#1e3a8a', bold: true },
-    outcome:  { label: '성과 (Outcome)',        bg: '#dcfce7', textColor: '#14532d', bold: true },
-    output:   { label: '산출물 (Output)',       bg: '#fef9c3', textColor: '#713f12', bold: false },
-    activity: { label: '활동 (Activity)',       bg: '#f9fafb', textColor: '#374151', bold: false },
+    impact:   { label: '영향 (Impact)',        bg: '#d4d4d4', textColor: '#1a1a1a', bold: true },
+    purpose:  { label: '사업목적 (Purpose)',   bg: '#e0e0e0', textColor: '#262626', bold: true },
+    outcome:  { label: '성과 (Outcome)',        bg: '#ececec', textColor: '#2e2e2e', bold: true },
+    output:   { label: '산출물 (Output)',       bg: '#f5f5f5', textColor: '#3a3a3a', bold: false },
+    activity: { label: '활동 (Activity)',       bg: '#ffffff', textColor: '#444444', bold: false },
   };
 
-  const th: CSSProperties = { border: '1px solid #888', padding: '6px 8px', textAlign: 'center', fontWeight: 700, fontSize: '8pt', background: '#EEF5D6', color: '#3b5c0a' };
+  const th: CSSProperties = { border: '1px solid #888', padding: '6px 8px', textAlign: 'center', fontWeight: 700, fontSize: '8pt', background: '#d4d4d4', color: '#1a1a1a' };
   const td = (bg: string, color: string, pl = 8): CSSProperties => ({ border: '1px solid #ccc', padding: `5px ${pl}px`, background: bg, color, verticalAlign: 'top', lineHeight: 1.6, fontSize: '8pt' });
 
   return (
@@ -178,10 +178,12 @@ function ScheduleGanttTable({ activities, startDate, endDate }: { activities: Sc
 type ProblemTreeData = { effects: ProblemTreeNode[]; coreProblem: string; causes: ProblemTreeNode[] };
 
 function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
-  const nodeStyle = (bg: string, border: string, color: string, sz = 7.5): CSSProperties => ({
+  const TREE_FONT = "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
+
+  const nodeStyle = (bg: string, border: string, color: string, sz = 8.5): CSSProperties => ({
     background: bg, border: `1.5px solid ${border}`, borderRadius: 6,
-    padding: '5px 8px', color, fontSize: sz, lineHeight: 1.4,
-    textAlign: 'center', wordBreak: 'keep-all', minWidth: 70, maxWidth: 120,
+    padding: '6px 9px', color, fontSize: sz, lineHeight: 1.5, fontWeight: 500,
+    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', minWidth: 76, maxWidth: 140,
   });
 
   const vLine = (color: string, h = 14): CSSProperties => ({
@@ -202,7 +204,7 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
     const hasChildren = node.children && node.children.length > 0;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={nodeStyle(c.bg, c.bd, c.tx, 7.5 - depth * 0.5)}>{node.text}</div>
+        <div style={nodeStyle(c.bg, c.bd, c.tx, 8.5 - depth * 0.3)}>{node.text}</div>
         {hasChildren && (
           <>
             <div style={vLine('#d97706', 10)} />
@@ -221,10 +223,10 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
     );
   }
 
-  const labelStyle: CSSProperties = { fontSize: 6.5, color: '#888', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+  const labelStyle: CSSProperties = { fontSize: 7.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
 
   return (
-    <div style={{ padding: '4px 0 8px', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '4px 0 8px', fontFamily: TREE_FONT }}>
       {/* Effects */}
       <div style={labelStyle}>↑ 결과 / 영향 (Effects)</div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -242,7 +244,7 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
       {/* Core Problem */}
       <div style={labelStyle}>핵심 문제 (Core Problem)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...nodeStyle('#EEF5D6', '#8AA81E', '#3b5c0a', 9), maxWidth: 220, fontWeight: 700, padding: '8px 14px' }}>
+        <div style={{ ...nodeStyle('#EEF5D6', '#8AA81E', '#3b5c0a', 10), maxWidth: 240, fontWeight: 700, padding: '9px 16px' }}>
           {tree.coreProblem}
         </div>
       </div>
@@ -273,21 +275,22 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
 type ObjectiveTreeData = { impact: string; purpose: string; outcomes: { id: string; text: string; children?: { id: string; text: string }[] }[] };
 
 function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
-  const ns = (bg: string, bd: string, color: string, sz = 7.5, maxW = 130): CSSProperties => ({
+  const TREE_FONT = "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
+  const ns = (bg: string, bd: string, color: string, sz = 8.5, maxW = 140): CSSProperties => ({
     background: bg, border: `1.5px solid ${bd}`, borderRadius: 6,
-    padding: '5px 8px', color, fontSize: sz, lineHeight: 1.4,
-    textAlign: 'center', wordBreak: 'keep-all', maxWidth: maxW, minWidth: 70,
+    padding: '6px 9px', color, fontSize: sz, lineHeight: 1.5, fontWeight: 500,
+    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', maxWidth: maxW, minWidth: 76,
   });
   const vl = (color: string, h = 12): CSSProperties => ({ width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0 });
   const hb = (color: string, w: string | number): CSSProperties => ({ height: 2, background: color, width: w, margin: '0 auto' });
-  const lbl: CSSProperties = { fontSize: 6.5, color: '#888', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+  const lbl: CSSProperties = { fontSize: 7.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '4px 0 8px' }}>
+    <div style={{ fontFamily: TREE_FONT, padding: '4px 0 8px' }}>
       {/* Impact */}
       <div style={lbl}>영향 (Impact / Goal)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...ns('#f5f3ff', '#c4b5fd', '#4c1d95', 9, 220), fontWeight: 700, padding: '8px 14px' }}>{tree.impact}</div>
+        <div style={{ ...ns('#f5f3ff', '#c4b5fd', '#4c1d95', 10, 240), fontWeight: 700, padding: '9px 16px' }}>{tree.impact}</div>
       </div>
 
       {/* Impact → Purpose */}
@@ -298,7 +301,7 @@ function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
       {/* Purpose */}
       <div style={lbl}>사업목적 (Purpose / Outcome)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...ns('#eff6ff', '#93c5fd', '#1e3a8a', 8.5, 200), fontWeight: 600, padding: '7px 12px' }}>{tree.purpose}</div>
+        <div style={{ ...ns('#eff6ff', '#93c5fd', '#1e3a8a', 9.5, 220), fontWeight: 600, padding: '8px 13px' }}>{tree.purpose}</div>
       </div>
 
       {/* Purpose → Outcomes */}
@@ -315,7 +318,7 @@ function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
         {tree.outcomes.map(oc => (
           <div key={oc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {tree.outcomes.length > 1 && <div style={vl('#6b7280', 10)} />}
-            <div style={ns('#EEF5D6', '#8AA81E', '#3b5c0a', 7.5)}>{oc.text}</div>
+            <div style={ns('#EEF5D6', '#8AA81E', '#3b5c0a', 8.5)}>{oc.text}</div>
             {oc.children && oc.children.length > 0 && (
               <>
                 <div style={vl('#10b981', 10)} />
@@ -324,7 +327,7 @@ function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
                   {oc.children.map(out => (
                     <div key={out.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       {oc.children!.length > 1 && <div style={vl('#10b981', 10)} />}
-                      <div style={ns('#ecfdf5', '#6ee7b7', '#065f46', 6.5, 110)}>{out.text}</div>
+                      <div style={ns('#ecfdf5', '#6ee7b7', '#065f46', 7.5, 120)}>{out.text}</div>
                     </div>
                   ))}
                 </div>
