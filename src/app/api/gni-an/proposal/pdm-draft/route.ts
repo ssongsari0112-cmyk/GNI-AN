@@ -326,9 +326,9 @@ JSON 배열만 출력:`;
 
     const pdm = parsePdmJson(raw);
     if (pdm) {
-      // id 빈칸 보완
+      // id 빈칸 보완 (매치마다 새 id를 생성해야 하므로 콜백 사용 — 고정 문자열을 쓰면 모든 빈 id가 동일해짐)
       const withIds = JSON.parse(
-        JSON.stringify(pdm).replace(/"id"\s*:\s*""/g, `"id":"${uid()}"`)
+        JSON.stringify(pdm).replace(/"id"\s*:\s*""/g, () => `"id":"${uid()}"`)
       );
       return NextResponse.json({ success: true, pdm: withIds });
     }

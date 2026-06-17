@@ -166,8 +166,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 }
 
 function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTitle: string }) {
-  const { sections, ideation, project, structure, updateSection, updateSectionAiDraft } = useProjectStore();
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string }[]>([]);
+  const { sections, ideation, project, structure, setStructure, updateSection, updateSectionAiDraft } = useProjectStore();
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string; pdmUpdated?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
@@ -178,6 +178,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const currentContent = sections[sectionId]?.content || '';
+  const isPdmPage = sectionId === 'plan-pdm';
 
   function handleImageSelect(file: File) {
     if (!file.type.startsWith('image/')) {
@@ -220,14 +221,64 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
     'basis-demand': ['수요 조사 충분해?', '기초선 데이터 있어?', '지역 선정 근거 명확해?', '개선점은?'],
     'basis-problem': ['문제나무 논리적이야?', '핵심 문제 명확해?', '원인 분석 충분해?', '개선점은?'],
     'basis-objective': ['목표 체계 적절해?', 'SMART 충족해?', '변화이론 있어?', '예시 보여줘'],
-    'plan-pdm': ['PDM 논리 연결 확인해줘', '지표가 SMART해?', '검증수단 적절해?', '개선점은?'],
+    'plan-pdm': ['활동 2개 추가해줘', 'Output 1개 추가해줘', 'PDM 논리 연결 확인해줘', '지표가 SMART해?'],
     'monitoring-risk': ['위험 식별 충분해?', '대응 방안 구체적이야?', '비상 연락 체계 있어?', '개선점은?'],
   };
   const questions = quickQuestions[sectionId] || ['검토해줘', '개선점은?', '예시 보여줘', '더 구체적으로'];
 
+  async function sendPdmMessage(question: string) {
+    const userMsg = { role: 'user' as const, content: question };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setStreaming(true);
+
+    const assistantPlaceholder = { role: 'assistant' as const, content: '' };
+    setMessages((prev) => [...prev, assistantPlaceholder]);
+
+    try {
+      const res = await fetch('/api/gni-an/proposal/pdm-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdm: structure?.pdm || [],
+          message: question,
+          projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.updatedPdm) && structure) {
+        setStructure({ ...structure, pdm: data.updatedPdm });
+        updateSection('plan-pdm', JSON.stringify(data.updatedPdm), 'in-progress');
+        setMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant' as const, content: data.reply || '수정했습니다.', pdmUpdated: true },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant' as const, content: data.reply || data.error || '처리 중 문제가 발생했습니다.' },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev.slice(0, -1),
+        { role: 'assistant' as const, content: '오류가 발생했습니다.' },
+      ]);
+    } finally {
+      setStreaming(false);
+    }
+  }
+
   async function sendMessage(text?: string) {
     const question = text || input.trim();
     if (!question || streaming) return;
+
+    if (isPdmPage) {
+      await sendPdmMessage(question);
+      return;
+    }
+
     const imageToSend = attachedImage;
 
     const userMsg = { role: 'user' as const, content: question, image: imageToSend || undefined };
@@ -365,6 +416,11 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
               // eslint-disable-next-line @next/next/no-img-element
               <img src={msg.image} alt="첨부 이미지" className="rounded-lg mb-1.5 max-h-32 object-cover" />
             )}
+            {msg.pdmUpdated && (
+              <div className="flex items-center gap-1 text-[#8AA81E] font-semibold mb-1">
+                <Check size={11} /> PDM이 직접 수정되었습니다
+              </div>
+            )}
             {msg.content ? (
               msg.role === 'assistant' ? (
                 <MarkdownText content={msg.content} className="text-xs" />
@@ -378,8 +434,8 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
         ))}
       </div>
 
-      {/* 직접 수정 적용 */}
-      {hasAssistantReply && !streaming && (
+      {/* 직접 수정 적용 — PDM 페이지에서는 채팅으로 즉시 수정되므로 별도 버튼 불필요 */}
+      {!isPdmPage && hasAssistantReply && !streaming && (
         <div className="px-3 py-2 border-t border-gray-50">
           {!revisedHtml ? (
             <button
@@ -457,7 +513,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             onPaste={handlePaste}
-            placeholder="질문하세요... (이미지 Ctrl+V 붙여넣기 가능)"
+            placeholder={isPdmPage ? '예: 활동 2개 추가해줘' : '질문하세요... (이미지 Ctrl+V 붙여넣기 가능)'}
             disabled={streaming}
             className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#8AA81E] disabled:bg-gray-50"
           />
@@ -469,7 +525,9 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
             <Send size={12} />
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">캡처한 이미지를 붙여넣거나(Ctrl+V) 드래그해서 첨부할 수 있습니다.</p>
+        <p className="text-xs text-gray-400 mt-1.5">
+          {isPdmPage ? '"활동 추가해줘", "Outcome 2 지표 수정해줘"처럼 요청하면 PDM이 바로 수정됩니다.' : '캡처한 이미지를 붙여넣거나(Ctrl+V) 드래그해서 첨부할 수 있습니다.'}
+        </p>
       </div>
     </div>
   );
