@@ -8,8 +8,18 @@ export type Range = { top: number; bottom: number };
 /** 표/목록과 별개로, 절대 분할되면 안 되는 블록(예: 나무 다이어그램)에 부여하는 클래스 */
 export const PDF_ATOMIC_CLASS = 'pdf-atomic-block';
 
+const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 export const PDF_MARGIN_V_MM = 6; // 페이지 상/하 여백
+
+export type PageOrientation = 'portrait' | 'landscape';
+
+/** 방향에 따른 실제 출력 페이지의 폭/높이(mm) */
+export function getPageSizeMm(orientation: PageOrientation): { widthMm: number; heightMm: number } {
+  return orientation === 'landscape'
+    ? { widthMm: A4_HEIGHT_MM, heightMm: A4_WIDTH_MM }
+    : { widthMm: A4_WIDTH_MM, heightMm: A4_HEIGHT_MM };
+}
 
 /**
  * 분할 금지 영역을 수집.
@@ -110,8 +120,14 @@ export function computePageBreaks(page: HTMLElement, pageHeightPx: number): numb
   return breaks;
 }
 
-/** 미리보기 화면에서 실제 내보내기와 동일한 기준의 페이지 높이(px)를 계산 */
-export function getPreviewPageHeightPx(pageWidthPx: number): number {
-  const pxPerMm = pageWidthPx / 210;
-  return (A4_HEIGHT_MM - PDF_MARGIN_V_MM * 2) * pxPerMm;
+/**
+ * 미리보기 화면에서 실제 내보내기와 동일한 기준의 페이지 높이(px)를 계산.
+ * pageWidthPx는 화면에 렌더링된 .doc-page의 실제 너비(px). 내보내기 시 이 픽셀 폭을
+ * 그대로 출력 페이지의 폭(mm, portrait=210mm / landscape=297mm)에 맞춰 배치하므로,
+ * landscape 페이지는 같은 내용이 더 크게 확대되어 페이지당 담기는 높이(px)가 줄어든다.
+ */
+export function getPreviewPageHeightPx(pageWidthPx: number, orientation: PageOrientation = 'portrait'): number {
+  const { widthMm, heightMm } = getPageSizeMm(orientation);
+  const pxPerMm = pageWidthPx / widthMm;
+  return (heightMm - PDF_MARGIN_V_MM * 2) * pxPerMm;
 }

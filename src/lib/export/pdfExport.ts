@@ -1,9 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { getNoSplitRanges, adjustBoundary, PDF_MARGIN_V_MM } from './pdfPageBreaks';
-
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
+import { getNoSplitRanges, adjustBoundary, getPageSizeMm, PDF_MARGIN_V_MM, type PageOrientation } from './pdfPageBreaks';
 
 export async function exportPagesToPdf(container: HTMLElement, filename: string) {
   const pages = Array.from(container.querySelectorAll<HTMLElement>('.doc-page'));
@@ -12,9 +9,11 @@ export async function exportPagesToPdf(container: HTMLElement, filename: string)
   const pdf = new jsPDF('p', 'mm', 'a4');
   let isFirstPage = true;
 
-  const contentHeightMm = A4_HEIGHT_MM - PDF_MARGIN_V_MM * 2;
-
   for (const page of pages) {
+    const orientation: PageOrientation = page.dataset.pdfOrientation === 'landscape' ? 'landscape' : 'portrait';
+    const { widthMm, heightMm } = getPageSizeMm(orientation);
+    const contentHeightMm = heightMm - PDF_MARGIN_V_MM * 2;
+
     const noSplitRanges = getNoSplitRanges(page);
     const pageHeightCss = page.scrollHeight || page.offsetHeight;
     if (pageHeightCss === 0) continue; // 빈 페이지(흰 페이지) 방지
@@ -27,7 +26,7 @@ export async function exportPagesToPdf(container: HTMLElement, filename: string)
     if (canvas.width === 0 || canvas.height === 0) continue;
 
     const scaleY = canvas.height / pageHeightCss; // CSS px → canvas px 변환 비율
-    const pxPerMm = canvas.width / A4_WIDTH_MM;
+    const pxPerMm = canvas.width / widthMm;
     const pageHeightPx = contentHeightMm * pxPerMm;
     const minTrailingPx = pageHeightPx * 0.08; // 너무 작은 마지막 조각은 흰 페이지처럼 보이므로 직전 조각에 합침
 
@@ -61,9 +60,9 @@ export async function exportPagesToPdf(container: HTMLElement, filename: string)
       const imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
       const sliceHeightMm = sliceHeightPx / pxPerMm;
 
-      if (!isFirstPage) pdf.addPage();
+      if (!isFirstPage) pdf.addPage('a4', orientation);
       isFirstPage = false;
-      pdf.addImage(imgData, 'JPEG', 0, PDF_MARGIN_V_MM, A4_WIDTH_MM, sliceHeightMm);
+      pdf.addImage(imgData, 'JPEG', 0, PDF_MARGIN_V_MM, widthMm, sliceHeightMm);
 
       renderedPx += sliceHeightPx;
     }

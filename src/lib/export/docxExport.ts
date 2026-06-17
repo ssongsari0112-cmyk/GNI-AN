@@ -381,46 +381,65 @@ export async function exportToDocx(data: ExportData, filename: string) {
     children.push(...summaryBlock('지속가능성', summary.risks?.sustainabilityPlan));
   }
 
-  // PDM — 가로 방향 별도 구역(섹션)으로 분리
+  // 가로 방향이 필요한 섹션 — 문제분석/목표분석/PDM/모니터링평가계획/추진일정(표·다이어그램이 넓은 섹션)
+  const LANDSCAPE_SECTION_IDS = new Set(['basis-problem', 'basis-objective', 'plan-pdm', 'monitoring-plan', 'monitoring-schedule']);
   const hasPdm = !!(structure?.pdm && structure.pdm.length > 0);
-  const pdmChildren: (Paragraph | Table)[] = [];
-  if (hasPdm) {
-    pdmChildren.push(
-      new Paragraph({ heading: HeadingLevel.HEADING_1, text: '2. 사업 추진 계획' }),
-      new Paragraph({ heading: HeadingLevel.HEADING_2, text: '가. 사업 논리 모형 (Project Design Matrix, PDM)' }),
-    );
-    pdmChildren.push(buildPdmTable(structure!.pdm));
-  }
 
-  // 17개 섹션 (PDM은 위에서 별도 가로 구역으로 이미 처리했으므로 제외)
-  const afterChildren: (Paragraph | Table)[] = [];
+  type Block = { landscape: boolean; code: string; title: string; isSchedule: boolean; isPdm: boolean; content?: string };
+  const blocks: Block[] = [];
+
   PROPOSAL_SECTIONS.forEach((section) => {
-    if (section.id === 'plan-pdm') return;
     const isSchedule = section.id === 'monitoring-schedule';
+    const isPdm = section.id === 'plan-pdm';
+    const landscape = LANDSCAPE_SECTION_IDS.has(section.id);
+
+    if (isPdm) {
+      if (!hasPdm) return;
+      blocks.push({ landscape, code: '', title: '', isSchedule: false, isPdm: true });
+      return;
+    }
     const content = sections[section.id]?.content;
     if (isSchedule ? scheduleActivities.length === 0 : !content) return;
-
-    afterChildren.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, text: `${section.code}. ${section.title}` }));
-    if (isSchedule) {
-      afterChildren.push(buildScheduleTable(scheduleActivities, project?.startDate || '', project?.endDate || ''));
-    } else {
-      afterChildren.push(...htmlToDocxElements(content));
-    }
+    blocks.push({ landscape, code: section.code, title: section.title, isSchedule, isPdm: false, content });
   });
 
   // A4 기준 용지 크기(twips) — LANDSCAPE 구역에서는 width/height가 자동으로 서로 바뀜
   const PAGE_WIDTH = 11906;
   const PAGE_HEIGHT = 16838;
-  const portraitPage = { size: { orientation: PageOrientation.PORTRAIT, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
-  const landscapePage = { size: { orientation: PageOrientation.LANDSCAPE, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
+  type PageProps = { size: { orientation: (typeof PageOrientation)['PORTRAIT'] | (typeof PageOrientation)['LANDSCAPE']; width: number; height: number } };
+  const portraitPage: PageProps = { size: { orientation: PageOrientation.PORTRAIT, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
+  const landscapePage: PageProps = { size: { orientation: PageOrientation.LANDSCAPE, width: PAGE_WIDTH, height: PAGE_HEIGHT } };
 
-  const docSections = hasPdm
-    ? [
-        { properties: { page: portraitPage }, children },
-        { properties: { page: landscapePage }, children: pdmChildren },
-        { properties: { page: portraitPage }, children: afterChildren },
-      ]
-    : [{ properties: { page: portraitPage }, children: [...children, ...afterChildren] }];
+  // 연속된 같은 방향의 블록을 하나의 구역(Section)으로 묶고, 방향이 바뀔 때만 새 구역(=새 페이지) 생성
+  type DocSection = { properties: { page: PageProps }; children: (Paragraph | Table)[] };
+  const docSections: DocSection[] = [{ properties: { page: portraitPage }, children: [...children] }];
+
+  blocks.forEach((block) => {
+    const last = docSections[docSections.length - 1];
+    const lastIsLandscape = last.properties.page === landscapePage;
+    const startNewSection = block.landscape !== lastIsLandscape;
+    if (startNewSection) {
+      docSections.push({ properties: { page: block.landscape ? landscapePage : portraitPage }, children: [] });
+    }
+    const current = docSections[docSections.length - 1];
+    // 구역이 막 새로 시작된 경우엔 구역 나누기 자체가 이미 새 페이지를 만들어주므로 pageBreakBefore가 불필요함
+    const needsBreak = !startNewSection;
+
+    if (block.isPdm) {
+      current.children.push(
+        new Paragraph({ pageBreakBefore: needsBreak, heading: HeadingLevel.HEADING_1, text: '2. 사업 추진 계획' }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, text: '가. 사업 논리 모형 (Project Design Matrix, PDM)' }),
+        buildPdmTable(structure!.pdm),
+      );
+    } else {
+      current.children.push(new Paragraph({ pageBreakBefore: needsBreak, heading: HeadingLevel.HEADING_1, text: `${block.code}. ${block.title}` }));
+      if (block.isSchedule) {
+        current.children.push(buildScheduleTable(scheduleActivities, project?.startDate || '', project?.endDate || ''));
+      } else {
+        current.children.push(...htmlToDocxElements(block.content!));
+      }
+    }
+  });
 
   const doc = new Document({ sections: docSections });
 
