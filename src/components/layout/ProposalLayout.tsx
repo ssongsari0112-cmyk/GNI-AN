@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Wand2, Loader2, Check } from 'lucide-react';
+import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
@@ -167,14 +167,10 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
 function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTitle: string }) {
   const { sections, ideation, project, structure, setStructure, updateSection, updateSectionAiDraft } = useProjectStore();
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string; pdmUpdated?: boolean }[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string; updated?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
-  const [revising, setRevising] = useState(false);
-  const [revisedHtml, setRevisedHtml] = useState<string | null>(null);
-  const [reviseError, setReviseError] = useState('');
-  const [applied, setApplied] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const currentContent = sections[sectionId]?.content || '';
@@ -252,7 +248,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
         updateSection('plan-pdm', JSON.stringify(data.updatedPdm), 'in-progress');
         setMessages((prev) => [
           ...prev.slice(0, -1),
-          { role: 'assistant' as const, content: data.reply || '수정했습니다.', pdmUpdated: true },
+          { role: 'assistant' as const, content: data.reply || '수정했습니다.', updated: true },
         ]);
       } else {
         setMessages((prev) => [
@@ -291,30 +287,30 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
     setMessages((prev) => [...prev, assistantPlaceholder]);
 
     try {
-      const res = await fetch('/api/gni-an/proposal/section/review', {
+      const res = await fetch('/api/gni-an/proposal/section/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sectionId,
           sectionTitle,
           content: currentContent,
-          question,
+          message: question,
           projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
           imageDataUrl: imageToSend || undefined,
         }),
       });
+      const data = await res.json();
 
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
+      if (data.success && typeof data.updatedHtml === 'string') {
+        updateSection(sectionId, data.updatedHtml, 'in-progress');
+        updateSectionAiDraft(sectionId, data.updatedHtml);
         setMessages((prev) => [
           ...prev.slice(0, -1),
-          { role: 'assistant' as const, content: accumulated },
+          { role: 'assistant' as const, content: data.reply || '수정했습니다.', updated: true },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant' as const, content: data.reply || data.error || '처리 중 문제가 발생했습니다.' },
         ]);
       }
     } catch {
@@ -326,48 +322,6 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
       setStreaming(false);
     }
   }
-
-  async function reviseWithLastFeedback() {
-    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === 'assistant' && m.content);
-    if (!lastAssistantMsg || revising) return;
-
-    setRevising(true);
-    setReviseError('');
-    setApplied(false);
-    setRevisedHtml(null);
-
-    try {
-      const res = await fetch('/api/gni-an/proposal/section/revise', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sectionTitle,
-          content: currentContent,
-          feedback: lastAssistantMsg.content,
-          projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.html) {
-        setRevisedHtml(data.html);
-      } else {
-        setReviseError(data.error || '수정안을 생성하지 못했습니다.');
-      }
-    } catch {
-      setReviseError('수정 중 오류가 발생했습니다.');
-    } finally {
-      setRevising(false);
-    }
-  }
-
-  function applyRevision() {
-    if (!revisedHtml) return;
-    updateSection(sectionId, revisedHtml, 'in-progress');
-    updateSectionAiDraft(sectionId, revisedHtml);
-    setApplied(true);
-  }
-
-  const hasAssistantReply = messages.some((m) => m.role === 'assistant' && m.content);
 
   return (
     <div
@@ -416,9 +370,9 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
               // eslint-disable-next-line @next/next/no-img-element
               <img src={msg.image} alt="첨부 이미지" className="rounded-lg mb-1.5 max-h-32 object-cover" />
             )}
-            {msg.pdmUpdated && (
+            {msg.updated && (
               <div className="flex items-center gap-1 text-[#8AA81E] font-semibold mb-1">
-                <Check size={11} /> PDM이 직접 수정되었습니다
+                <Check size={11} /> {isPdmPage ? 'PDM이' : '본문이'} 직접 수정되었습니다
               </div>
             )}
             {msg.content ? (
@@ -433,50 +387,6 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
           </div>
         ))}
       </div>
-
-      {/* 직접 수정 적용 — PDM 페이지에서는 채팅으로 즉시 수정되므로 별도 버튼 불필요 */}
-      {!isPdmPage && hasAssistantReply && !streaming && (
-        <div className="px-3 py-2 border-t border-gray-50">
-          {!revisedHtml ? (
-            <button
-              onClick={reviseWithLastFeedback}
-              disabled={revising}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-[#5a7012] bg-[#EEF5D6] border border-[#D9E6B7] rounded-lg px-3 py-2 hover:bg-[#D9E6B7] transition-colors disabled:opacity-50"
-            >
-              {revising ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-              {revising ? '본문 수정 중...' : '마지막 답변대로 본문 직접 수정'}
-            </button>
-          ) : (
-            <div className="border border-[#D9E6B7] rounded-lg overflow-hidden">
-              <div className="bg-[#F7F8F2] px-2.5 py-1.5 text-[11px] font-semibold text-[#5a7012] flex items-center justify-between">
-                수정 제안 미리보기
-                <button onClick={() => setRevisedHtml(null)} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
-              </div>
-              <div
-                className="doc-content px-2.5 py-2 max-h-40 overflow-y-auto text-[11px] leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: revisedHtml }}
-              />
-              <div className="flex gap-1.5 p-2 border-t border-gray-100">
-                {applied ? (
-                  <span className="flex-1 flex items-center justify-center gap-1 text-xs text-[#8AA81E] font-medium py-1">
-                    <Check size={12} /> 본문에 적용됨
-                  </span>
-                ) : (
-                  <>
-                    <button onClick={applyRevision} className="flex-1 bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg px-2 py-1.5 text-xs font-medium transition-colors">
-                      적용하기
-                    </button>
-                    <button onClick={() => setRevisedHtml(null)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1.5 hover:bg-gray-50">
-                      취소
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-          {reviseError && <p className="text-xs text-red-400 mt-1.5">{reviseError}</p>}
-        </div>
-      )}
 
       {/* Input */}
       <div className="p-3 border-t border-gray-100">
@@ -513,7 +423,7 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             onPaste={handlePaste}
-            placeholder={isPdmPage ? '예: 활동 2개 추가해줘' : '질문하세요... (이미지 Ctrl+V 붙여넣기 가능)'}
+            placeholder={isPdmPage ? '예: 활동 2개 추가해줘' : '예: 두 번째 문단에 수치 추가해줘'}
             disabled={streaming}
             className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#8AA81E] disabled:bg-gray-50"
           />
@@ -526,7 +436,9 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-1.5">
-          {isPdmPage ? '"활동 추가해줘", "Outcome 2 지표 수정해줘"처럼 요청하면 PDM이 바로 수정됩니다.' : '캡처한 이미지를 붙여넣거나(Ctrl+V) 드래그해서 첨부할 수 있습니다.'}
+          {isPdmPage
+            ? '"활동 추가해줘", "Outcome 2 지표 수정해줘"처럼 요청하면 PDM이 바로 수정됩니다.'
+            : '"이렇게 바꿔줘", "수치 추가해줘"처럼 요청하면 본문이 바로 수정됩니다. 이미지는 Ctrl+V로 붙여넣거나 드래그해서 첨부할 수 있습니다.'}
         </p>
       </div>
     </div>
