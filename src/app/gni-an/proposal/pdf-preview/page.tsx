@@ -597,9 +597,13 @@ export default function PDFPreviewPage() {
                 </div>
               )}
               <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape={LANDSCAPE_SECTION_IDS.has(section.id)}>
-                <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-                  {section.code}. {section.title}
-                </h3>
+                {/* 문제나무/목표나무가 있는 경우, 제목이 다이어그램과 분리되어 혼자 페이지에
+                    남지 않도록 제목을 다이어그램과 같은 분할 금지 블록 안에 넣음 */}
+                {!((isProblemTree && hasProblemTree) || (isObjTree && hasObjTree)) && (
+                  <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
+                    {section.code}. {section.title}
+                  </h3>
+                )}
                 {isSchedule ? (
                   <ScheduleGanttTable
                     activities={scheduleActivities}
@@ -612,6 +616,9 @@ export default function PDFPreviewPage() {
                   <>
                     {hasProblemTree && (
                       <div className={PDF_ATOMIC_CLASS}>
+                        <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
+                          {section.code}. {section.title}
+                        </h3>
                         <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>문제나무 (Problem Tree)</p>
                         <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
                           <ProblemTreePdfView tree={structure!.problemTree!} />
@@ -626,6 +633,9 @@ export default function PDFPreviewPage() {
                   <>
                     {hasObjTree && (
                       <div className={PDF_ATOMIC_CLASS}>
+                        <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
+                          {section.code}. {section.title}
+                        </h3>
                         <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>목표나무 (Objective Tree)</p>
                         <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
                           <ObjectiveTreePdfView tree={structure!.objectiveTree!} />
@@ -662,9 +672,7 @@ export default function PDFPreviewPage() {
           @page { margin: 15mm; size: A4; }
         }
         .doc-content { font-size: 10pt; line-height: 1.9; color: #222; }
-        .doc-content h1 { font-size: 12pt; font-weight: 700; margin: 12px 0 6px; }
-        .doc-content h2 { font-size: 11pt; font-weight: 700; margin: 10px 0 5px; }
-        .doc-content h3 { font-size: 10.5pt; font-weight: 600; margin: 8px 0 4px; }
+        .doc-content h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 6px; color: #111; }
         .doc-content p { margin: 4px 0; }
         .doc-content ul, .doc-content ol { padding-left: 20px; margin: 4px 0; }
         .doc-content li { margin: 2px 0; }

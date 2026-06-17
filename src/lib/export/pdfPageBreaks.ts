@@ -52,7 +52,8 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
       const r1 = el.getBoundingClientRect();
       const top = r1.top - pageRect.top;
       let bottom = r1.bottom - pageRect.top;
-      if ((tag === 'p' || tag === 'h3') && next && ['ul', 'ol'].includes(next.tagName.toLowerCase())) {
+      // 제목(p/h3) 바로 다음에 목록/표가 오면, 제목만 페이지 끝에 혼자 남지 않도록 묶어서 보호
+      if ((tag === 'p' || tag === 'h3') && next && ['ul', 'ol', 'table'].includes(next.tagName.toLowerCase())) {
         const r2 = next.getBoundingClientRect();
         bottom = r2.top - pageRect.top;
       }
@@ -65,18 +66,22 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
 
 /**
  * desired 경계가 보호 영역을 가로지르면 경계를 조정.
- * 1) 통째로 다음 페이지로 옮길 수 있는(아직 시작 안 한) 영역이 있으면, 그 중 가장 바깥쪽(가장 이른 top)으로 경계를 끌어올림
+ * 1) 통째로 다음 페이지로 옮길 수 있는(아직 시작 안 했고, 자기 자신의 높이가 한 페이지 분량
+ *    이하인) 영역이 있으면, 그 중 가장 바깥쪽(가장 이른 top)으로 경계를 끌어올림
  *    → 표 전체가 한 페이지에 들어가면 표째로 다음 페이지로 넘어감
+ *    (표 자체가 한 페이지보다 커서 어차피 새 페이지에서도 다 못 담는 경우는 "옮길 수 있는"
+ *    대상에서 제외 — 그렇지 않으면 표를 통째로 다음 페이지로 미루기만 하고 정작 그 표는
+ *    여러 페이지에 걸쳐야 해서, 제목만 있는 페이지에 빈 공간이 크게 남는 문제가 생김)
  * 2) 옮길 수 있는 영역이 없다면(이미 그 영역 안에서 자르는 중) — 가장 안쪽(가장 작은) 영역의 끝으로 경계를 내려서
  *    표는 분할되더라도 행/항목만큼은 절대 쪼개지지 않도록 함
  */
-export function adjustBoundary(ranges: Range[], desired: number, minBoundary: number): number {
+export function adjustBoundary(ranges: Range[], desired: number, minBoundary: number, pageHeightPx: number): number {
   let boundary = desired;
   for (let guard = 0; guard < 12; guard++) {
     const straddlers = ranges.filter((r) => r.top < boundary - 0.5 && r.bottom > boundary + 0.5);
     if (straddlers.length === 0) return boundary;
 
-    const movable = straddlers.filter((r) => r.top > minBoundary + 0.5);
+    const movable = straddlers.filter((r) => r.top > minBoundary + 0.5 && r.bottom - r.top <= pageHeightPx + 0.5);
     if (movable.length > 0) {
       // 옮길 수 있는 영역(표 전체 등) 중 가장 바깥쪽으로 한 번에 결정 — 이후 그 영역 내부를
       // 다시 검사하면 표 전체가 또 "분할 금지"로 잡혀 무한히 표의 끝까지 밀려나가는
@@ -109,7 +114,7 @@ export function computePageBreaks(page: HTMLElement, pageHeightPx: number): numb
     if (total - sliceEnd < minTrailingPx) {
       sliceEnd = total;
     } else {
-      const adjusted = adjustBoundary(ranges, sliceEnd, renderedPx);
+      const adjusted = adjustBoundary(ranges, sliceEnd, renderedPx, pageHeightPx);
       sliceEnd = adjusted > renderedPx + 1 ? adjusted : sliceEnd;
     }
 

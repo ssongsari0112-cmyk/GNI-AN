@@ -42,7 +42,7 @@ export async function exportPagesToPdf(container: HTMLElement, filename: string)
         // 남은 분량이 적으면 이번 조각에 합쳐서 거의 빈 페이지가 생기는 것을 방지
         sliceEnd = canvas.height;
       } else {
-        const adjusted = adjustBoundary(blocksPx, sliceEnd, renderedPx);
+        const adjusted = adjustBoundary(blocksPx, sliceEnd, renderedPx, pageHeightPx);
         sliceEnd = adjusted > renderedPx + 1 ? adjusted : sliceEnd;
       }
 
