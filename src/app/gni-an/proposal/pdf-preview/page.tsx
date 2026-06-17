@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
@@ -8,56 +8,16 @@ import { ArrowLeft, Download, FileText, FileType } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { exportPagesToPdf } from '@/lib/export/pdfExport';
 import { exportToDocx } from '@/lib/export/docxExport';
-import { computePageBreaks, getPreviewPageHeightPx, PDF_ATOMIC_CLASS, type PageOrientation } from '@/lib/export/pdfPageBreaks';
+import { PDF_ATOMIC_CLASS, type PageOrientation } from '@/lib/export/pdfPageBreaks';
 
 /* ── 가로 방향으로 내보낼 섹션 — 문제분석/목표분석/모니터링평가계획/추진일정(표·다이어그램이 넓은 섹션) ── */
 const LANDSCAPE_SECTION_IDS = new Set(['basis-problem', 'basis-objective', 'monitoring-plan', 'monitoring-schedule']);
 
-/* ── PDF 페이지 구분선 오버레이 — 실제 내보내기와 동일한 기준으로 어디서 페이지가 나뉘는지 미리 표시 ── */
-function PageBreakOverlay({ pageRef, orientation }: { pageRef: React.RefObject<HTMLDivElement | null>; orientation: PageOrientation }) {
-  const [breaks, setBreaks] = useState<number[]>([]);
-
-  useEffect(() => {
-    function recompute() {
-      const el = pageRef.current;
-      if (!el) return;
-      const widthPx = el.offsetWidth || 794;
-      const pageHeightPx = getPreviewPageHeightPx(widthPx, orientation);
-      setBreaks(computePageBreaks(el, pageHeightPx));
-    }
-    const t1 = setTimeout(recompute, 80);
-    const t2 = setTimeout(recompute, 500);
-    window.addEventListener('resize', recompute);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      window.removeEventListener('resize', recompute);
-    };
-  }, [pageRef, orientation]);
-
-  if (breaks.length === 0) return null;
-
-  return (
-    <>
-      {breaks.map((y, i) => (
-        <div key={i} className="pdf-preview-only" style={{ position: 'absolute', left: 0, right: 0, top: y, pointerEvents: 'none', zIndex: 5 }}>
-          <div style={{ borderTop: '2px dashed #ef4444' }} />
-          <span style={{ position: 'absolute', right: 6, top: 2, fontSize: 8, fontWeight: 700, color: '#ef4444', background: '#fff', padding: '1px 5px', borderRadius: 3, border: '1px solid #fecaca' }}>
-            ✂ 페이지 구분
-          </span>
-        </div>
-      ))}
-    </>
-  );
-}
-
-/** 모든 .doc-page 공통 래퍼 — 페이지 구분선 오버레이 + 화면상 페이지 카드 구분(여백/그림자) 포함 */
+/** 모든 .doc-page 공통 래퍼 — 화면상 페이지 카드 구분(여백/그림자) 포함 */
 function DocPage({ children, style, landscape = false }: { children: ReactNode; style?: CSSProperties; landscape?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
   const orientation: PageOrientation = landscape ? 'landscape' : 'portrait';
   return (
     <div
-      ref={ref}
       className="doc-page"
       data-pdf-orientation={orientation}
       style={{ position: 'relative', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', marginBottom: 10, ...style }}
@@ -68,7 +28,6 @@ function DocPage({ children, style, landscape = false }: { children: ReactNode; 
         </span>
       )}
       {children}
-      <PageBreakOverlay pageRef={ref} orientation={orientation} />
     </div>
   );
 }
