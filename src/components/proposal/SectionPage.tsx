@@ -194,7 +194,7 @@ export function SectionPage({
 
   return (
     <ProposalLayout sectionId={sectionId} sectionTitle={sectionTitle}>
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className={clsx('mx-auto px-6 py-6', customContent ? 'max-w-7xl' : 'max-w-3xl')}>
         {/* Header */}
         <div className="mb-4">
           <div className="flex flex-wrap gap-1.5 mb-3">
