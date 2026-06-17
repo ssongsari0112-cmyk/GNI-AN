@@ -11,7 +11,7 @@ import type { SectionId } from '@/types';
 import { Check, Loader2, Sparkles, RefreshCw, PenLine, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
-const AUTO_DRAFT_SECTIONS = new Set([
+export const AUTO_DRAFT_SECTIONS = new Set([
   'basis-background', 'basis-demand', 'basis-stakeholder',
   'basis-problem', 'basis-objective', 'basis-self-assessment',
   'plan-detail', 'plan-crosscutting', 'plan-sustainability',

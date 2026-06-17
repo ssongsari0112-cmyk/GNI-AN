@@ -66,7 +66,7 @@ function CreateForm() {
       updatedAt: new Date().toISOString(),
     });
     setProjectDetails(details);
-    router.push(returnTo || '/gni-an/proposal/basis-background');
+    router.push(returnTo || '/gni-an/proposal/generating');
   }
 
   const completedExperts = getCompletedExpertsCount();
