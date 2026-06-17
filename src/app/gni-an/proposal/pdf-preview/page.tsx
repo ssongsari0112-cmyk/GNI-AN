@@ -2,8 +2,8 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/store/projectStore';
-import { PROPOSAL_SECTIONS, SECTOR_OPTIONS } from '@/types';
-import type { ScheduleActivity, ProjectDetails, ProblemTreeNode } from '@/types';
+import { PROPOSAL_SECTIONS } from '@/types';
+import type { ScheduleActivity, ProblemTreeNode } from '@/types';
 import { ArrowLeft, Download, FileText, FileType } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { exportPagesToPdf } from '@/lib/export/pdfExport';
@@ -173,183 +173,6 @@ function ScheduleGanttTable({ activities, startDate, endDate }: { activities: Sc
   );
 }
 
-/* ── 제안사업 요약서 (사업개요 표) ───────────────────────────── */
-function ProjectSummaryTable({ project, ideation, details }: { project: any; ideation: any; details: ProjectDetails }) {
-  const cellStyle: CSSProperties = { border: '1px solid #999', padding: '6px 8px', verticalAlign: 'middle' };
-  const labelStyle: CSSProperties = { ...cellStyle, background: '#EEF5D6', fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap' };
-
-  const totalKoica = details.yearlyBudgets.reduce((s, y) => s + (y.koica || 0), 0);
-  const totalPartner = details.yearlyBudgets.reduce((s, y) => s + (y.partner || 0), 0);
-
-  const programTypes: ('HDP-N' | '긴급재난대응')[] = ['HDP-N', '긴급재난대응'];
-
-  const yearLabels = ['1차', '2차', '3차', '4차', '5차', '6차', '7차', '8차'];
-
-  return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', tableLayout: 'fixed' }}>
-      <colgroup>
-        <col style={{ width: '15%' }} />
-        <col style={{ width: '85%' }} />
-      </colgroup>
-      <tbody>
-        <tr>
-          <td style={labelStyle}>단체명</td>
-          <td style={cellStyle}>{project?.organization || '-'}</td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업명</td>
-          <td style={cellStyle}>{project?.title || '-'}</td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업지역</td>
-          <td style={cellStyle}>{[project?.country, project?.region || ideation?.subRegion].filter(Boolean).join(' ') || '-'}</td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업기간</td>
-          <td style={cellStyle}>
-            {project?.startDate || '-'} ~ {project?.endDate || '-'}
-            {details.yearlyBudgets.length > 0 && ` (${details.yearlyBudgets.length}개년)`}
-          </td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업비</td>
-          <td style={{ ...cellStyle, padding: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt' }}>
-              <tbody>
-                {details.yearlyBudgets.map((y, idx) => (
-                  <tr key={y.year}>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', width: 60 }}>{yearLabels[idx] || `${y.year}차`} 연도</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px' }}>
-                      총 {(y.koica + y.partner).toLocaleString()}원 / KOICA분담금 {y.koica.toLocaleString()}원, 파트너분담금 {y.partner.toLocaleString()}원
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td style={{ border: '1px solid #ccc', padding: '4px 8px', fontWeight: 700 }}>총 사업비</td>
-                  <td style={{ border: '1px solid #ccc', padding: '4px 8px', fontWeight: 700 }}>
-                    총 {(totalKoica + totalPartner).toLocaleString()}원 / KOICA분담금 {totalKoica.toLocaleString()}원, 파트너분담금 {totalPartner.toLocaleString()}원
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>신청자금 및 사업유형</td>
-          <td style={cellStyle}>
-            <div style={{ display: 'flex', gap: 32 }}>
-              {programTypes.map((t) => (
-                <span key={t}>{details.programType === t ? '☑' : '☐'} {t}</span>
-              ))}
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업분야</td>
-          <td style={cellStyle}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px 8px' }}>
-              {SECTOR_OPTIONS.map((s) => (
-                <span key={s}>{details.sectors.includes(s) ? '☑' : '☐'} {s}</span>
-              ))}
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td style={labelStyle}>사업대상</td>
-          <td style={cellStyle}>
-            직접 수혜자: {details.directBeneficiaries || '-'} / 간접 수혜자: {details.indirectBeneficiaries || '-'}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  );
-}
-
-/* ── 사업담당자 / 파트너기관 / 운영역할 / 좌표 테이블 ───────────────────────────── */
-function TeamPartnerTable({ project, details }: { project: any; details: ProjectDetails }) {
-  const cellStyle: CSSProperties = { border: '1px solid #999', padding: '6px 8px', verticalAlign: 'middle' };
-  const labelStyle: CSSProperties = { ...cellStyle, background: '#EEF5D6', fontWeight: 700, textAlign: 'center' };
-
-  return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginTop: '8px' }}>
-      <tbody>
-        <tr>
-          <td colSpan={2} style={labelStyle}>사업담당자 구성</td>
-        </tr>
-        <tr>
-          <td style={{ ...cellStyle, width: '50%', verticalAlign: 'top' }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>국내</div>
-            {details.domesticManagers.length > 0 ? details.domesticManagers.map((m) => (
-              <div key={m.id}>{m.role}{m.name && ` (${m.name})`}</div>
-            )) : <div style={{ color: '#999' }}>-</div>}
-          </td>
-          <td style={{ ...cellStyle, width: '50%', verticalAlign: 'top' }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>현지</div>
-            {details.fieldManagers.map((m) => (
-              <div key={m.id}>{m.role}{m.name && ` ${m.name}`}</div>
-            ))}
-            {details.fieldRepresentative && <div>{details.fieldRepresentative}</div>}
-            {details.fieldManagers.length === 0 && !details.fieldRepresentative && <div style={{ color: '#999' }}>-</div>}
-          </td>
-        </tr>
-
-        <tr>
-          <td colSpan={2} style={{ ...labelStyle, padding: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt' }}>
-              <thead>
-                <tr>
-                  <th style={{ border: '1px solid #999', padding: '6px 8px' }}>파트너기관명</th>
-                  <th style={{ border: '1px solid #999', padding: '6px 8px' }}>한국 수행기관-현지 파트너 관계</th>
-                  <th style={{ border: '1px solid #999', padding: '6px 8px' }}>현지 정부 등록 여부</th>
-                </tr>
-              </thead>
-              <tbody>
-                {details.partners.length > 0 ? details.partners.map((p) => (
-                  <tr key={p.id} style={{ fontWeight: 400, background: '#fff' }}>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{p.name || '-'}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{p.relationship || '-'}</td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center' }}>{p.govRegistered ? '등록' : '미등록'}</td>
-                  </tr>
-                )) : (
-                  <tr style={{ background: '#fff' }}>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 8px', textAlign: 'center', color: '#999' }} colSpan={3}>입력된 파트너기관이 없습니다.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </td>
-        </tr>
-
-        <tr>
-          <td colSpan={2} style={labelStyle}>운영 역할</td>
-        </tr>
-        <tr>
-          <td style={{ ...cellStyle, width: '50%', textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>한국 수행기관</div>
-            {project?.organization || '-'}
-          </td>
-          <td style={{ ...cellStyle, width: '50%', textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>현지 파트너</div>
-            {details.partners[0]?.name || '-'}
-          </td>
-        </tr>
-
-        {details.coordinates && (
-          <>
-            <tr>
-              <td colSpan={2} style={labelStyle}>사업 시행지 좌표</td>
-            </tr>
-            <tr>
-              <td colSpan={2} style={cellStyle}>
-                링크(Google Maps): {details.coordinates}
-              </td>
-            </tr>
-          </>
-        )}
-      </tbody>
-    </table>
-  );
-}
 
 /* ── 문제나무 PDF 렌더러 ─────────────────────── */
 type ProblemTreeData = { effects: ProblemTreeNode[]; coreProblem: string; causes: ProblemTreeNode[] };
@@ -655,19 +478,6 @@ export default function PDFPreviewPage() {
               </div>
             );
           })}
-        </div>
-
-        {/* ── 1. 제안사업 요약서 ── */}
-        <div className="doc-page" style={{ background: 'white', padding: '48px 60px', pageBreakAfter: 'always' }}>
-          <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-            1. 제안사업 요약서
-          </h3>
-          <ProjectSummaryTable project={project} ideation={ideation} details={projectDetails} />
-
-          <h3 style={{ fontSize: '13pt', fontWeight: 700, margin: '28px 0 16px', paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-            2. 사업담당자 및 파트너기관 정보
-          </h3>
-          <TeamPartnerTable project={project} details={projectDetails} />
         </div>
 
         {/* ── 사업개요서 ── */}
