@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { MarkdownText } from '@/components/ui/MarkdownText';
-import type { Insight, PDMRow } from '@/types';
-import { ArrowRight, RefreshCw, Lightbulb, AlertTriangle, X, Plus, Pencil, Check, ChevronDown, ChevronUp, MessageSquare, Send } from 'lucide-react';
+import type { Insight, PDMRow, PDMInput } from '@/types';
+import { ArrowRight, RefreshCw, Lightbulb, AlertTriangle, X, Plus, Pencil, Check, ChevronDown, ChevronUp, MessageSquare, Send, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 type Tab = 'problem' | 'objective' | 'pdm';
@@ -402,6 +402,74 @@ function PDMRowEditor({ row, onUpdate, onDelete, onAddChild, level = 0 }: {
   );
 }
 
+/* ── 투입물(Inputs) 블록 — 출처별 항목 리스트, 추측 금지 안내 ── */
+function PDMInputsBlock({ inputs, onUpdate }: { inputs: PDMInput[]; onUpdate: (inputs: PDMInput[]) => void }) {
+  function updateSource(id: string, source: string) {
+    onUpdate(inputs.map((i) => (i.id === id ? { ...i, source } : i)));
+  }
+  function updateItem(id: string, idx: number, value: string) {
+    onUpdate(inputs.map((i) => (i.id === id ? { ...i, items: i.items.map((it, k) => (k === idx ? value : it)) } : i)));
+  }
+  function addItem(id: string) {
+    onUpdate(inputs.map((i) => (i.id === id ? { ...i, items: [...i.items, ''] } : i)));
+  }
+  function removeItem(id: string, idx: number) {
+    onUpdate(inputs.map((i) => (i.id === id ? { ...i, items: i.items.filter((_, k) => k !== idx) } : i)));
+  }
+  function addSource() {
+    onUpdate([...inputs, { id: 'input-' + Date.now(), source: '', items: [''] }]);
+  }
+  function removeSource(id: string) {
+    onUpdate(inputs.filter((i) => i.id !== id));
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <h3 className="text-sm font-bold text-[#111827] mb-1">투입물 (Inputs)</h3>
+      <p className="text-xs text-gray-400 mb-3">항목명만 작성됩니다 — 구체적 수량·금액·명수는 담당자가 직접 입력해주세요.</p>
+      <div className="space-y-3">
+        {inputs.map((input) => (
+          <div key={input.id} className="border border-gray-200 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                value={input.source}
+                onChange={(e) => updateSource(input.id, e.target.value)}
+                placeholder="출처 (예: KOICA, 굿네이버스 본부)"
+                className="flex-1 text-sm font-semibold text-[#5a7012] bg-transparent border border-transparent hover:border-gray-200 focus:border-[#8AA81E] focus:bg-white rounded px-1.5 py-0.5 focus:outline-none"
+              />
+              <button onClick={() => removeSource(input.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                <Trash2 size={13} />
+              </button>
+            </div>
+            <div className="space-y-1.5 pl-2">
+              {input.items.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-gray-300 text-xs">·</span>
+                  <input
+                    value={item}
+                    onChange={(e) => updateItem(input.id, idx, e.target.value)}
+                    placeholder="투입 항목"
+                    className="flex-1 text-xs text-gray-700 bg-transparent border border-transparent hover:border-gray-200 focus:border-[#8AA81E] focus:bg-white rounded px-1 py-0.5 focus:outline-none"
+                  />
+                  <button onClick={() => removeItem(input.id, idx)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => addItem(input.id)} className="flex items-center gap-1 text-xs text-[#8AA81E] hover:underline mt-1">
+                <Plus size={11} /> 항목 추가
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={addSource} className="flex items-center gap-1.5 text-sm text-[#8AA81E] border border-dashed border-[#D9E6B7] rounded-lg px-4 py-2 hover:bg-[#EEF5D6] transition-colors mt-3">
+        <Plus size={14} /> 투입 출처 추가
+      </button>
+    </div>
+  );
+}
+
 function PDMEditor({ structure, setStructure }: { structure: any; setStructure: (s: any) => void }) {
   function updateRow(id: string, updated: PDMRow) {
     setStructure({ ...structure, pdm: structure.pdm.map((r: PDMRow) => r.id === id ? updated : r) });
@@ -439,6 +507,10 @@ function PDMEditor({ structure, setStructure }: { structure: any; setStructure: 
       <button onClick={addOutcome} className="flex items-center gap-1.5 text-sm text-[#8AA81E] hover:text-[#799516] mt-2">
         <Plus size={14} /> 성과(Outcome) 추가
       </button>
+      <PDMInputsBlock
+        inputs={structure.pdmInputs || []}
+        onUpdate={(updated) => setStructure({ ...structure, pdmInputs: updated })}
+      />
     </div>
   );
 }
@@ -686,7 +758,7 @@ export default function StructurePage() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setStructure({ problemTree: data.data.problemTree, objectiveTree: data.data.objectiveTree, pdm: data.data.pdm });
+      setStructure({ problemTree: data.data.problemTree, objectiveTree: data.data.objectiveTree, pdm: data.data.pdm, pdmInputs: data.data.pdmInputs || [] });
       if (data.data.insights?.length) setInsights(data.data.insights);
     } catch (err) {
       setError(err instanceof Error ? err.message : '구조 생성 중 오류가 발생했습니다.');

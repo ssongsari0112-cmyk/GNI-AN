@@ -3,6 +3,19 @@ import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { PROMPTS } from '@/lib/prompts';
 import { parseAIJson } from '@/lib/parseJSON';
 
+// AI가 지침을 어기고 구체적 금액을 추측해 적는 경우를 대비한 안전장치
+function sanitizeBudgetAmounts(text: string): string {
+  return text.replace(/[\d][\d,]*\s*(억\s*)?(\d+\s*)?(천만|백만|만|천)?\s*원/g, 'OO원');
+}
+
+function sanitizePdmInputs(inputs: unknown): unknown {
+  if (!Array.isArray(inputs)) return inputs;
+  return inputs.map((input: { items?: string[] }) => ({
+    ...input,
+    items: Array.isArray(input.items) ? input.items.map(sanitizeBudgetAmounts) : input.items,
+  }));
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { ideation, analysis, expertSessions } = await req.json();
@@ -34,10 +47,11 @@ AI 분석 결과:
 ${consultingContext || '(상담 내용 없음)'}
 
 아래 JSON 구조를 그대로 따르되, 모든 값을 위 사업 정보에 맞게 구체적으로 채워주세요.
-아래 예시의 개수(Output 2개, Activity 2개 등)는 최소 기준입니다 — 실제로는 outcomes에
-작성하는 모든 Output마다 반드시 2~4개의 활동을 빠짐없이 activities 배열에 포함시키고,
-pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키세요.
-절대 Output 1개당 활동 1개만 만들지 마세요. SDG 번호나 명칭은 직접 언급하지 마세요.
+아래 예시의 개수(Output 2개, Activity 3개 등)는 최소 기준입니다 — 실제로는 outcomes에
+작성하는 모든 Output마다 반드시 3~4개의 활동을 빠짐없이 activities 배열에 포함시키고,
+pdm의 모든 Output도 children에 Activity를 3~4개씩 반드시 포함시키세요.
+절대 Output 1개당 활동 1~2개만 만들지 마세요. SDG 번호나 명칭은 직접 언급하지 마세요.
+pdmInputs(투입물)는 항목명만 작성하고 구체적 수량·금액·명수를 추측해서 쓰지 마세요.
 
 {
   "problemTree": {
@@ -90,12 +104,16 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
     "activities": [
       {"id": "a1-1-1", "text": "활동 1.1.1 (구체적 실행 단위)", "level": "activity"},
       {"id": "a1-1-2", "text": "활동 1.1.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a1-1-3", "text": "활동 1.1.3 (구체적 실행 단위)", "level": "activity"},
       {"id": "a1-2-1", "text": "활동 1.2.1 (구체적 실행 단위)", "level": "activity"},
       {"id": "a1-2-2", "text": "활동 1.2.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a1-2-3", "text": "활동 1.2.3 (구체적 실행 단위)", "level": "activity"},
       {"id": "a2-1-1", "text": "활동 2.1.1 (구체적 실행 단위)", "level": "activity"},
       {"id": "a2-1-2", "text": "활동 2.1.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-1-3", "text": "활동 2.1.3 (구체적 실행 단위)", "level": "activity"},
       {"id": "a2-2-1", "text": "활동 2.2.1 (구체적 실행 단위)", "level": "activity"},
-      {"id": "a2-2-2", "text": "활동 2.2.2 (구체적 실행 단위)", "level": "activity"}
+      {"id": "a2-2-2", "text": "활동 2.2.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-2-3", "text": "활동 2.2.3 (구체적 실행 단위)", "level": "activity"}
     ]
   },
   "pdm": [
@@ -130,7 +148,8 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
           "assumptions": "예산 집행 정상",
           "children": [
             {"id": "pdm-act-1-1-1", "level": "activity", "code": "A 1.1.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 접근 가능"},
-            {"id": "pdm-act-1-1-2", "level": "activity", "code": "A 1.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "참여 인력 확보"}
+            {"id": "pdm-act-1-1-2", "level": "activity", "code": "A 1.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "참여 인력 확보"},
+            {"id": "pdm-act-1-1-3", "level": "activity", "code": "A 1.1.3", "narrative": "구체적 실행 활동 3", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "예산 적시 집행"}
           ]
         },
         {
@@ -141,7 +160,8 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
           "assumptions": "참여자 모집 가능",
           "children": [
             {"id": "pdm-act-1-2-1", "level": "activity", "code": "A 1.2.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "강사 확보"},
-            {"id": "pdm-act-1-2-2", "level": "activity", "code": "A 1.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "교육 장소 확보"}
+            {"id": "pdm-act-1-2-2", "level": "activity", "code": "A 1.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "교육 장소 확보"},
+            {"id": "pdm-act-1-2-3", "level": "activity", "code": "A 1.2.3", "narrative": "구체적 실행 활동 3", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "교육 자료 준비 완료"}
           ]
         }
       ]
@@ -161,7 +181,8 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
           "assumptions": "자재·장비 조달 가능",
           "children": [
             {"id": "pdm-act-2-1-1", "level": "activity", "code": "A 2.1.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "자재 수급 안정"},
-            {"id": "pdm-act-2-1-2", "level": "activity", "code": "A 2.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 인력 확보"}
+            {"id": "pdm-act-2-1-2", "level": "activity", "code": "A 2.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 인력 확보"},
+            {"id": "pdm-act-2-1-3", "level": "activity", "code": "A 2.1.3", "narrative": "구체적 실행 활동 3", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 점검 일정 확보"}
           ]
         },
         {
@@ -172,11 +193,17 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
           "assumptions": "관련 기관 협력 가능",
           "children": [
             {"id": "pdm-act-2-2-1", "level": "activity", "code": "A 2.2.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "협력 기관 일정 확보"},
-            {"id": "pdm-act-2-2-2", "level": "activity", "code": "A 2.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "예산 적시 집행"}
+            {"id": "pdm-act-2-2-2", "level": "activity", "code": "A 2.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "예산 적시 집행"},
+            {"id": "pdm-act-2-2-3", "level": "activity", "code": "A 2.2.3", "narrative": "구체적 실행 활동 3", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "결과 점검 체계 마련"}
           ]
         }
       ]
     }
+  ],
+  "pdmInputs": [
+    {"id": "input-1", "source": "KOICA", "items": ["3년간 사업비 약 OO원", "사업 모니터링 및 평가 지원"]},
+    {"id": "input-2", "source": "굿네이버스 본부", "items": ["3년간 사업비 약 OO원", "사업 총괄 책임자(Project Manager) 파견", "전문가 자문 지원"]},
+    {"id": "input-3", "source": "굿네이버스 현지사무소(또는 현지 파트너기관)", "items": ["현지 수행인력(Project Officer) 파견", "행정·협력 체계 구축"]}
   ],
   "insights": [
     {"id": "i1", "category": "문제 정의", "content": "구체적 인사이트 내용", "confidence": "high", "source": "AI 분석"},
@@ -220,6 +247,11 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
               { id: 'pdm-out-1-1', level: 'output', code: 'Output 1.1', narrative: '시설 신·개축', indicators: '시설 X개소', verificationMeans: '완공 보고서', assumptions: '예산 집행 정상', children: [] },
             ]},
           ],
+          pdmInputs: [
+            { id: 'input-1', source: 'KOICA', items: ['3년간 사업비 약 OO원'] },
+            { id: 'input-2', source: '굿네이버스 본부', items: ['3년간 사업비 약 OO원', '사업 총괄 책임자(Project Manager) 파견'] },
+            { id: 'input-3', source: '굿네이버스 현지사무소', items: ['현지 수행인력(Project Officer) 파견'] },
+          ],
           insights: [
             { id: 'i1', category: '문제 정의', content: `${ideation?.country || '대상국'} ${ideation?.field || '해당 분야'} 현황 기반 문제 구조화 필요`, confidence: 'high', source: '데모 모드' },
             { id: 'i2', category: '수혜자', content: '직·간접 수혜자 성별·연령 분류 및 참여형 수요 조사 권장', confidence: 'medium', source: '데모 모드' },
@@ -231,6 +263,7 @@ pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키
 
     const result = await generateTextPro([{ role: 'user', content: userMessage }], systemPrompt);
     const parsed = parseAIJson(result) as any;
+    if (parsed?.pdmInputs) parsed.pdmInputs = sanitizePdmInputs(parsed.pdmInputs);
 
     return NextResponse.json({ success: true, data: parsed });
   } catch (error) {
