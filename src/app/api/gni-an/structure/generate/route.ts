@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { PROMPTS } from '@/lib/prompts';
 import { parseAIJson } from '@/lib/parseJSON';
 
@@ -33,7 +33,12 @@ AI 분석 결과:
 전문가 상담 인사이트:
 ${consultingContext || '(상담 내용 없음)'}
 
-아래 JSON 구조를 그대로 따르되, 모든 값을 위 사업 정보에 맞게 구체적으로 채워주세요:
+아래 JSON 구조를 그대로 따르되, 모든 값을 위 사업 정보에 맞게 구체적으로 채워주세요.
+아래 예시의 개수(Output 2개, Activity 2개 등)는 최소 기준입니다 — 실제로는 outcomes에
+작성하는 모든 Output마다 반드시 2~4개의 활동을 빠짐없이 activities 배열에 포함시키고,
+pdm의 모든 Output도 children에 Activity를 2~4개씩 반드시 포함시키세요.
+절대 Output 1개당 활동 1개만 만들지 마세요. SDG 번호나 명칭은 직접 언급하지 마세요.
+
 {
   "problemTree": {
     "effects": [
@@ -69,7 +74,7 @@ ${consultingContext || '(상담 내용 없음)'}
     ]
   },
   "objectiveTree": {
-    "impact": "SDG X.X 연계 — 궁극적 사회 변화 서술",
+    "impact": "궁극적 사회 변화 서술 (SDG 번호·명칭 직접 언급 금지)",
     "purpose": "사업 종료 시점에 달성할 구체적 변화 상태 (수혜자, 수치, 지역 포함)",
     "outcomes": [
       {"id": "o1", "text": "성과 1 (구체적)", "level": "outcome", "children": [
@@ -83,17 +88,20 @@ ${consultingContext || '(상담 내용 없음)'}
     ],
     "outputs": [],
     "activities": [
-      {"id": "a1-1-1", "text": "활동 1.1.1", "level": "activity"},
-      {"id": "a1-1-2", "text": "활동 1.1.2", "level": "activity"},
-      {"id": "a1-2-1", "text": "활동 1.2.1", "level": "activity"},
-      {"id": "a2-1-1", "text": "활동 2.1.1", "level": "activity"},
-      {"id": "a2-2-1", "text": "활동 2.2.1", "level": "activity"}
+      {"id": "a1-1-1", "text": "활동 1.1.1 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a1-1-2", "text": "활동 1.1.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a1-2-1", "text": "활동 1.2.1 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a1-2-2", "text": "활동 1.2.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-1-1", "text": "활동 2.1.1 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-1-2", "text": "활동 2.1.2 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-2-1", "text": "활동 2.2.1 (구체적 실행 단위)", "level": "activity"},
+      {"id": "a2-2-2", "text": "활동 2.2.2 (구체적 실행 단위)", "level": "activity"}
     ]
   },
   "pdm": [
     {
       "id": "pdm-impact", "level": "impact", "code": "Impact",
-      "narrative": "SDG 연계 영향 서술",
+      "narrative": "장기적 영향 서술 (SDG 번호·명칭 직접 언급 금지)",
       "indicators": "국가 단위 측정 지표",
       "verificationMeans": "국가 통계, UN 보고서",
       "assumptions": "국가 정책 환경 지속",
@@ -120,7 +128,10 @@ ${consultingContext || '(상담 내용 없음)'}
           "indicators": "산출 지표 (수량·질적 지표)",
           "verificationMeans": "사업 완료 보고서",
           "assumptions": "예산 집행 정상",
-          "children": []
+          "children": [
+            {"id": "pdm-act-1-1-1", "level": "activity", "code": "A 1.1.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 접근 가능"},
+            {"id": "pdm-act-1-1-2", "level": "activity", "code": "A 1.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "참여 인력 확보"}
+          ]
         },
         {
           "id": "pdm-out-1-2", "level": "output", "code": "Output 1.2",
@@ -128,7 +139,10 @@ ${consultingContext || '(상담 내용 없음)'}
           "indicators": "산출 지표",
           "verificationMeans": "교육/훈련 기록",
           "assumptions": "참여자 모집 가능",
-          "children": []
+          "children": [
+            {"id": "pdm-act-1-2-1", "level": "activity", "code": "A 1.2.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "강사 확보"},
+            {"id": "pdm-act-1-2-2", "level": "activity", "code": "A 1.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "교육 장소 확보"}
+          ]
         }
       ]
     },
@@ -145,7 +159,21 @@ ${consultingContext || '(상담 내용 없음)'}
           "indicators": "산출 지표",
           "verificationMeans": "완료 보고서",
           "assumptions": "자재·장비 조달 가능",
-          "children": []
+          "children": [
+            {"id": "pdm-act-2-1-1", "level": "activity", "code": "A 2.1.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "자재 수급 안정"},
+            {"id": "pdm-act-2-1-2", "level": "activity", "code": "A 2.1.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "현장 인력 확보"}
+          ]
+        },
+        {
+          "id": "pdm-out-2-2", "level": "output", "code": "Output 2.2",
+          "narrative": "산출물 2.2 구체적 서술",
+          "indicators": "산출 지표",
+          "verificationMeans": "완료 보고서",
+          "assumptions": "관련 기관 협력 가능",
+          "children": [
+            {"id": "pdm-act-2-2-1", "level": "activity", "code": "A 2.2.1", "narrative": "구체적 실행 활동 1", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "협력 기관 일정 확보"},
+            {"id": "pdm-act-2-2-2", "level": "activity", "code": "A 2.2.2", "narrative": "구체적 실행 활동 2", "indicators": "완료 기준 지표", "verificationMeans": "활동 보고서", "assumptions": "예산 적시 집행"}
+          ]
         }
       ]
     }
@@ -201,7 +229,7 @@ ${consultingContext || '(상담 내용 없음)'}
       });
     }
 
-    const result = await generateText([{ role: 'user', content: userMessage }], systemPrompt);
+    const result = await generateTextPro([{ role: 'user', content: userMessage }], systemPrompt);
     const parsed = parseAIJson(result) as any;
 
     return NextResponse.json({ success: true, data: parsed });
