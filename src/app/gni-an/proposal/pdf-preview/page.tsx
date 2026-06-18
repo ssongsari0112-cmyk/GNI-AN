@@ -43,6 +43,30 @@ function getPart(code: string) {
   return PARTS.find((p) => p.codes.includes(code)) || PARTS[0];
 }
 
+/* ── PDM 투입물(Inputs) 블록 — 출처별 항목 리스트 ── */
+function PDMInputsBlock({ inputs }: { inputs: { id: string; source: string; items: string[] }[] }) {
+  if (!inputs || inputs.length === 0) return null;
+  return (
+    <div style={{ marginTop: 10, border: '1px solid #ccc', borderTop: 'none' }}>
+      <div style={{ background: '#d4d4d4', color: '#1a1a1a', fontWeight: 700, fontSize: '8pt', padding: '5px 8px', borderBottom: '1px solid #888' }}>
+        투입물 (Inputs)
+      </div>
+      <div style={{ padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        {inputs.map((input) => (
+          <div key={input.id} style={{ minWidth: 180 }}>
+            <div style={{ fontSize: '8pt', fontWeight: 700, color: '#3a3a3a', marginBottom: 3 }}>{input.source}</div>
+            <ul style={{ margin: 0, paddingLeft: 14 }}>
+              {input.items.map((item, i) => (
+                <li key={i} style={{ fontSize: '8pt', color: '#444', lineHeight: 1.6 }}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── PDM 테이블 (4열, 4계층: Impact→Outcome→Output→Activity) ── */
 function PDMTable({ pdm }: { pdm: any[] }) {
   type FlatRow = { indent: number; level: string; code: string; narrative: string; indicators: string; verificationMeans: string; assumptions: string };
@@ -570,7 +594,10 @@ export default function PDFPreviewPage() {
                     endDate={project?.endDate || ''}
                   />
                 ) : isPdm ? (
-                  <PDMTable pdm={structure!.pdm} />
+                  <>
+                    <PDMTable pdm={structure!.pdm} />
+                    <PDMInputsBlock inputs={structure!.pdmInputs || []} />
+                  </>
                 ) : isProblemTree ? (
                   <>
                     {hasProblemTree && (

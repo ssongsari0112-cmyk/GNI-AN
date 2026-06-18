@@ -1,7 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalMergeType, VerticalAlign, PageOrientation } from 'docx';
 import { htmlToDocxElements } from './htmlToDocx';
 import { PROPOSAL_SECTIONS, SECTOR_OPTIONS } from '@/types';
-import type { Project, IdeationData, ProjectSummary, StructureData, ProposalSection, ScheduleActivity, ProjectDetails, PDMRow } from '@/types';
+import type { Project, IdeationData, ProjectSummary, StructureData, ProposalSection, ScheduleActivity, ProjectDetails, PDMRow, PDMInput } from '@/types';
 
 interface ExportData {
   project: Project | null;
@@ -320,6 +320,21 @@ function buildPdmTable(pdm: PDMRow[]): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
+/** PDM 표 하단 투입물(Inputs) 블록 — 출처별 항목 리스트 */
+function buildPdmInputsParagraphs(inputs: PDMInput[]): Paragraph[] {
+  if (!inputs || inputs.length === 0) return [];
+  const paragraphs: Paragraph[] = [
+    new Paragraph({ spacing: { before: 200, after: 80 }, children: [new TextRun({ text: '투입물 (Inputs)', bold: true, size: 24 })] }),
+  ];
+  inputs.forEach((input) => {
+    paragraphs.push(new Paragraph({ spacing: { before: 80 }, children: [new TextRun({ text: input.source, bold: true, size: 20, color: '3A3A3A' })] }));
+    input.items.forEach((item) => {
+      paragraphs.push(new Paragraph({ bullet: { level: 0 }, text: item }));
+    });
+  });
+  return paragraphs;
+}
+
 export async function exportToDocx(data: ExportData, filename: string) {
   const { project, ideation, summary, structure, sections, scheduleActivities, projectDetails } = data;
 
@@ -430,6 +445,7 @@ export async function exportToDocx(data: ExportData, filename: string) {
         new Paragraph({ pageBreakBefore: needsBreak, heading: HeadingLevel.HEADING_1, text: '2. 사업 추진 계획' }),
         new Paragraph({ heading: HeadingLevel.HEADING_2, text: '가. 사업 논리 모형 (Project Design Matrix, PDM)' }),
         buildPdmTable(structure!.pdm),
+        ...buildPdmInputsParagraphs(structure!.pdmInputs || []),
       );
     } else {
       current.children.push(new Paragraph({ pageBreakBefore: needsBreak, heading: HeadingLevel.HEADING_1, text: `${block.code}. ${block.title}` }));

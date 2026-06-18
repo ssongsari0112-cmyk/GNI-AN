@@ -86,6 +86,13 @@ export interface PDMRow {
   children?: PDMRow[];
 }
 
+/** PDM 하단 투입물(Inputs) 블록 — 출처(KOICA/굿네이버스 본부/현지 등)별 투입 내역 */
+export interface PDMInput {
+  id: string;
+  source: string; // 예: "KOICA", "굿네이버스 본부", "굿네이버스 [국가]사무소"
+  items: string[]; // 예: "3년간 사업비 약 OO원", "사업 총괄 책임자 파견"
+}
+
 export interface StructureData {
   problemTree: {
     effects: ProblemTreeNode[];
@@ -100,6 +107,7 @@ export interface StructureData {
     activities: ObjectiveTreeNode[];
   };
   pdm: PDMRow[];
+  pdmInputs?: PDMInput[];
 }
 
 export interface SummarySection {

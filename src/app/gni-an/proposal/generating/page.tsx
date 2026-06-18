@@ -151,7 +151,7 @@ export default function ProposalGeneratingPage() {
         });
         const data = await res.json();
         if (data.success && data.pdm?.length > 0) {
-          structureNow = { ...structureNow!, pdm: data.pdm };
+          structureNow = { ...structureNow!, pdm: data.pdm, pdmInputs: data.inputs || [] };
           useProjectStore.getState().setStructure(structureNow);
           useProjectStore.getState().updateSection('plan-pdm', JSON.stringify(data.pdm), 'in-progress');
           setStatus('pdm', 'done');
