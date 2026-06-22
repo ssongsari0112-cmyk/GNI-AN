@@ -1244,6 +1244,23 @@ const PMC_SYSTEM_ADDENDUM = `
 - 원문에 없지만 제안서에 필요한 내용(수행기관 역량, 젠더 전략, 지속가능성 등)은 추가하세요.
 - 원문의 내용과 모순되거나 어긋나는 내용은 쓰지 마세요.`;
 
+/* ── 담당자 필수 수정 안내 — AI 프롬프트 준수 여부에 의존하지 않고 서버에서 직접 삽입 ── */
+const INTERNAL_DOC_NOTICES: Record<string, string> = {
+  'basis-demand':
+    '<p style="background:#FFF7E6;border:1px solid #F0C36D;border-radius:8px;padding:10px 14px;color:#8a5a00;font-size:13px;">' +
+    '<strong>⚠ [필수 수정 필요 — 내부 문서 삽입]</strong> 아래 1~3번(사전조사 팀 구성·방법·결과)은 실제 사전조사 자료가 입력되지 않아 AI가 예시로 작성했습니다. ' +
+    '사업 수행 기관이 보유한 실제 사전조사 자료(설문지, FGD/KII 기록, 현장조사 결과 등 내부 문서)를 반드시 첨부·반영하여 교체해야 합니다.</p>',
+  'basis-self-assessment':
+    '<p style="background:#FFF7E6;border:1px solid #F0C36D;border-radius:8px;padding:10px 14px;color:#8a5a00;font-size:13px;">' +
+    '<strong>⚠ [필수 수정 필요 — 내부 문서 삽입]</strong> 이 섹션 전체는 파트너기관 자체 평가 자료가 입력되지 않아 AI가 예시로 작성했습니다. ' +
+    '파트너기관이 직접 작성한 자체 평가 자료(OCAT 평가서 등 내부 문서)를 반드시 첨부·반영하여 교체해야 합니다.</p>',
+};
+
+function withInternalDocNotice(sectionId: string, html: string): string {
+  const notice = INTERNAL_DOC_NOTICES[sectionId];
+  return notice ? notice + html : html;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { sectionId, projectContext, projectType, pmcSourceDocs } = await req.json();
@@ -1255,7 +1272,8 @@ export async function POST(req: NextRequest) {
 
     if (!isOpenAIConfigured()) {
       const fallback = FALLBACK[sectionId];
-      return NextResponse.json({ success: true, html: fallback || '<p>예시 내용을 직접 작성해 주세요.</p>' });
+      const html = withInternalDocNotice(sectionId, fallback || '<p>예시 내용을 직접 작성해 주세요.</p>');
+      return NextResponse.json({ success: true, html });
     }
 
     // Build PMC source text if available
@@ -1304,7 +1322,7 @@ export async function POST(req: NextRequest) {
       .replace(/```\n?/g, '')
       .trim();
 
-    return NextResponse.json({ success: true, html: cleaned });
+    return NextResponse.json({ success: true, html: withInternalDocNotice(sectionId, cleaned) });
   } catch (error) {
     const message = error instanceof Error ? error.message : '초안 생성 중 오류가 발생했습니다.';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
