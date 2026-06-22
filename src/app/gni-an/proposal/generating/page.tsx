@@ -140,9 +140,9 @@ export default function ProposalGeneratingPage() {
           targetBeneficiaries: base.targetBeneficiaries,
           interventionApproach: base.interventionApproach,
           expectedOutcomes: base.expectedOutcomes,
-          problemTree: structureNow?.problemTree ? JSON.stringify(structureNow.problemTree).slice(0, 800) : '',
+          problemTree: structureNow?.problemTree ? JSON.stringify(structureNow.problemTree) : '',
           objectiveTree: structureNow?.objectiveTree
-            ? JSON.stringify({ impact: structureNow.objectiveTree.impact, purpose: structureNow.objectiveTree.purpose, outcomes: structureNow.objectiveTree.outcomes }).slice(0, 800)
+            ? JSON.stringify({ impact: structureNow.objectiveTree.impact, purpose: structureNow.objectiveTree.purpose, outcomes: structureNow.objectiveTree.outcomes })
             : '',
         };
         const res = await fetch('/api/gni-an/proposal/pdm-draft', {

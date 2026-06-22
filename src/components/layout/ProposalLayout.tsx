@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Check } from 'lucide-react';
+import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Check, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
 import type { SectionId } from '@/types';
 import { MarkdownText } from '@/components/ui/MarkdownText';
+import { FindReplaceModal } from '@/components/proposal/FindReplaceModal';
 
 const STATUS_ICONS = {
   empty: '○',
@@ -453,6 +454,7 @@ interface ProposalLayoutProps {
 
 export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const { sections, project } = useProjectStore();
   const sectionData = sections[sectionId];
   const router = useRouter();
@@ -487,6 +489,13 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
           >
             <Settings size={13} />프로젝트 정보 수정
+          </button>
+          <button
+            onClick={() => setFindReplaceOpen(true)}
+            title="제안서 전체에서 단어 한 번에 바꾸기"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
+          >
+            <Search size={13} />찾아바꾸기
           </button>
           <button
             onClick={() => prevSection && router.push(prevSection.path)}
@@ -542,6 +551,8 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
           <AiAssistant sectionId={sectionId} sectionTitle={sectionTitle} />
         </div>
       </div>
+
+      {findReplaceOpen && <FindReplaceModal onClose={() => setFindReplaceOpen(false)} />}
     </div>
   );
 }

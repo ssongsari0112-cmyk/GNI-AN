@@ -5,6 +5,7 @@ import type { ObjectiveTreeNode } from '@/types';
 import { Loader2, Sparkles, RefreshCw, Check, PenLine } from 'lucide-react';
 import { clsx } from 'clsx';
 import { RichTextEditor } from '@/components/editors/RichTextEditor';
+import { CitationHtml } from '@/components/proposal/CitationHtml';
 
 function uid() {
   return `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -160,9 +161,9 @@ function NodeBox({
             {onDelete && <button onClick={onDelete} className="w-5 h-5 rounded-full bg-red-400 text-white text-[9px] shadow flex items-center justify-center">✕</button>}
           </div>
           {(onAddSibling || onAddChild) && (
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:flex gap-1 z-20 whitespace-nowrap">
-              {onAddSibling && <button onClick={onAddSibling} className="text-[9px] bg-white border rounded px-1.5 py-0.5 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+형제</button>}
-              {onAddChild && <button onClick={onAddChild} className="text-[9px] bg-white border rounded px-1.5 py-0.5 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+{childLabel}</button>}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 translate-y-full hidden group-hover:flex flex-col gap-1 z-20 whitespace-nowrap">
+              {onAddSibling && <button onClick={onAddSibling} className="text-[10px] bg-white border rounded px-2.5 py-1 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+추가</button>}
+              {onAddChild && <button onClick={onAddChild} className="text-[10px] bg-white border rounded px-2.5 py-1 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+{childLabel}</button>}
             </div>
           )}
         </>
@@ -203,7 +204,7 @@ function OutcomeColumn({
         childLabel="산출물"
       />
       {node.children && node.children.length > 0 && (
-        <div className="flex gap-2 flex-wrap justify-center" style={{ marginTop: 44 }}>
+        <div className="flex gap-2 flex-wrap justify-center" style={{ marginTop: 56 }}>
           {node.children.map(output => (
             <NodeBox
               key={output.id}
@@ -484,7 +485,17 @@ export function ObjectiveTreeVisual() {
           </div>
         ) : viewMode === 'ai' && aiDraft ? (
           <>
-            <div className="border border-[#D9E6B7] rounded-lg bg-[#F7F8F2] px-5 py-4 text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: aiDraft }} />
+            <CitationHtml
+              html={aiDraft}
+              className="border border-[#D9E6B7] rounded-lg bg-[#F7F8F2] px-5 py-4 text-xs leading-relaxed"
+              onSaveLink={(citationText, url) => {
+                const updated = aiDraft.replace(
+                  `(${citationText})`,
+                  `(<a href="${url}" target="_blank" rel="noopener noreferrer">${citationText}</a>)`
+                );
+                updateSectionAiDraft('basis-objective', updated);
+              }}
+            />
             <div className="flex justify-end mt-2">
               <button onClick={handleUseAiDraft} className="text-xs text-[#5a7012] border border-[#D9E6B7] bg-white rounded-lg px-3 py-1.5 hover:bg-[#EEF5D6] transition-colors">이 초안으로 편집 시작 →</button>
             </div>

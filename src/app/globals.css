@@ -20,6 +20,19 @@ body {
 ::-webkit-scrollbar-thumb { background: #D9E6B7; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #8AA81E; }
 
+/* ── 출처(Citation) 클릭 가능 칩 ── */
+.citation-chip {
+  color: #5a7012;
+  background: #EEF5D6;
+  border: 1px solid #D9E6B7;
+  border-radius: 4px;
+  padding: 0 3px;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.citation-chip:hover { background: #D9E6B7; }
+
 /* ── 마크다운 채팅 렌더링 ── */
 .markdown-body { line-height: 1.75; }
 .markdown-body h1 { font-size: 1rem; font-weight: 700; margin: 0.6em 0 0.3em; }

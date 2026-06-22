@@ -241,9 +241,9 @@ export default function PlanPdmPage() {
     targetBeneficiaries: ia?.targetBeneficiaries || '',
     interventionApproach: ia?.interventionApproach || '',
     expectedOutcomes: ia?.expectedOutcomes || '',
-    problemTree: structure?.problemTree ? JSON.stringify(structure.problemTree).slice(0, 800) : '',
+    problemTree: structure?.problemTree ? JSON.stringify(structure.problemTree) : '',
     objectiveTree: structure?.objectiveTree
-      ? JSON.stringify({ impact: structure.objectiveTree.impact, purpose: structure.objectiveTree.purpose, outcomes: structure.objectiveTree.outcomes }).slice(0, 800)
+      ? JSON.stringify({ impact: structure.objectiveTree.impact, purpose: structure.objectiveTree.purpose, outcomes: structure.objectiveTree.outcomes })
       : '',
   });
 

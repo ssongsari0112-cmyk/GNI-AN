@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { MarkdownText } from '@/components/ui/MarkdownText';
+import { CitationHtml } from '@/components/proposal/CitationHtml';
 import type { SectionId } from '@/types';
 import { Check, Loader2, Sparkles, RefreshCw, PenLine, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -315,10 +316,17 @@ export function SectionPage({
             ) : viewMode === 'ai' && shouldAutoDraft ? (
               aiDraft ? (
                 <>
-                  <div
+                  <CitationHtml
+                    html={aiDraft}
                     className="border border-[#D9E6B7] rounded-xl bg-white px-6 py-5 overflow-auto"
                     style={{ minHeight: 350 }}
-                    dangerouslySetInnerHTML={{ __html: aiDraft }}
+                    onSaveLink={(citationText, url) => {
+                      const updated = aiDraft.replace(
+                        `(${citationText})`,
+                        `(<a href="${url}" target="_blank" rel="noopener noreferrer">${citationText}</a>)`
+                      );
+                      updateSectionAiDraft(sectionId, updated);
+                    }}
                   />
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-400">읽기 전용 — 편집하려면 '내 작성'으로 전환</span>
