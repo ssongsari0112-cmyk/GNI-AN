@@ -225,7 +225,7 @@ function OutcomeColumn({
 
 export function ObjectiveTreeVisual() {
   const { structure, setStructure, updateSection, updateSectionAiDraft, sections,
-    ideation, project, ideationAnalysis, expertSessions, experts } = useProjectStore();
+    ideation, project, ideationAnalysis, expertSessions, experts, projectType, pmcSourceDocs } = useProjectStore();
 
   const [generating, setGenerating] = useState(false);
   const [generatingText, setGeneratingText] = useState(false);
@@ -315,7 +315,7 @@ export function ObjectiveTreeVisual() {
       const ctx = buildCtx();
       const res = await fetch('/api/gni-an/proposal/objective-tree', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ctx),
+        body: JSON.stringify({ ...ctx, projectType, pmcSourceDocs }),
       });
       const data = await res.json();
       if (data.success && data.tree) {
@@ -325,7 +325,7 @@ export function ObjectiveTreeVisual() {
         setStructure(newStructure);
       }
     } catch { /* silent */ } finally { setGenerating(false); }
-  }, [structure, setStructure, buildCtx]);
+  }, [structure, setStructure, buildCtx, projectType, pmcSourceDocs]);
 
   // ── AI generate text ──────────────────────────────────────────────────
   const handleGenerateText = useCallback(async () => {

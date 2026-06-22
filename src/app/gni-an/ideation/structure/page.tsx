@@ -531,11 +531,13 @@ const TAB_META: Record<Tab, { title: string; questions: string[] }> = {
   },
 };
 
-function StructureAiAssistant({ activeTab, structure, ideation, project }: {
+function StructureAiAssistant({ activeTab, structure, ideation, project, projectType, pmcSourceDocs }: {
   activeTab: Tab;
   structure: any;
   ideation: any;
   project: any;
+  projectType?: string;
+  pmcSourceDocs?: unknown;
 }) {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [input, setInput] = useState('');
@@ -610,6 +612,8 @@ function StructureAiAssistant({ activeTab, structure, ideation, project }: {
             country: ideation?.country || project?.country || '',
             title: project?.title || '',
           },
+          projectType,
+          pmcSourceDocs,
         }),
       });
 
@@ -721,7 +725,7 @@ function StructureAiAssistant({ activeTab, structure, ideation, project }: {
 /* ── 메인 페이지 ──────────────────────────────── */
 export default function StructurePage() {
   const router = useRouter();
-  const { ideation, ideationAnalysis, expertSessions, project, setStructure, setInsights, insights, structure } = useProjectStore();
+  const { ideation, ideationAnalysis, expertSessions, project, setStructure, setInsights, insights, structure, projectType, pmcSourceDocs } = useProjectStore();
 
   const [loading, setLoading] = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -754,7 +758,7 @@ export default function StructurePage() {
       const res = await fetch('/api/gni-an/structure/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideation, analysis: ideationAnalysis, expertSessions: sessions }),
+        body: JSON.stringify({ ideation, analysis: ideationAnalysis, expertSessions: sessions, projectType, pmcSourceDocs }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -854,6 +858,8 @@ export default function StructurePage() {
             structure={structure}
             ideation={ideation}
             project={project}
+            projectType={projectType}
+            pmcSourceDocs={pmcSourceDocs}
           />
         </div>
       </div>

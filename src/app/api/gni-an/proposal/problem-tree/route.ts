@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcPromptBlock } from '@/lib/pmcContext';
 
 /* ── 작성 지침 기반 문제나무 생성 ─────────────────────────────────────── */
 
@@ -119,11 +120,13 @@ const FALLBACK_TREE = {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { title, country, field, idea, coreProblem, targetBeneficiaries, expertInsights } = body;
+  const { title, country, field, idea, coreProblem, targetBeneficiaries, expertInsights, projectType, pmcSourceDocs } = body;
 
   if (!isOpenAIConfigured()) {
     return NextResponse.json({ success: true, tree: FALLBACK_TREE });
   }
+
+  const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
 
   const contextLines = [
     title && `사업명: ${title}`,
@@ -136,7 +139,7 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join('\n');
 
   const userPrompt = `아래 사업 정보를 바탕으로 KOICA 제안서에 사용할 문제나무를 생성하세요.
-
+${pmcBlock}
 [사업 정보]
 ${contextLines}
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcPromptBlock } from '@/lib/pmcContext';
 
 /* ── 목표나무 생성 (문제나무의 부정적 표현 → 긍정적 전환) ─────────────── */
 
@@ -79,11 +80,13 @@ const FALLBACK_TREE = {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { title, country, field, idea, coreProblem, problemTree, expertInsights } = body;
+  const { title, country, field, idea, coreProblem, problemTree, expertInsights, projectType, pmcSourceDocs } = body;
 
   if (!isOpenAIConfigured()) {
     return NextResponse.json({ success: true, tree: FALLBACK_TREE });
   }
+
+  const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
 
   const contextLines = [
     title && `사업명: ${title}`,
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   const userPrompt = `아래 사업 정보를 바탕으로 KOICA 제안서에 사용할 목표나무를 생성하세요.
 문제나무의 각 원인을 긍정적 목표로 전환하세요.
-
+${pmcBlock}
 [사업 정보]
 ${contextLines}
 

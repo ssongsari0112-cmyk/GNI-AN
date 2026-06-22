@@ -243,7 +243,7 @@ function calcLines(
 
 export function ProblemTreeEditor() {
   const { structure, setStructure, updateSection, updateSectionAiDraft, sections,
-    ideation, project, ideationAnalysis, expertSessions, experts } = useProjectStore();
+    ideation, project, ideationAnalysis, expertSessions, experts, projectType, pmcSourceDocs } = useProjectStore();
 
   const [generating, setGenerating] = useState(false);
   const [generatingText, setGeneratingText] = useState(false);
@@ -327,7 +327,7 @@ export function ProblemTreeEditor() {
     try {
       const res = await fetch('/api/gni-an/proposal/problem-tree', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildCtx()),
+        body: JSON.stringify({ ...buildCtx(), projectType, pmcSourceDocs }),
       });
       const data = await res.json();
       if (data.success && data.tree) {
@@ -338,7 +338,7 @@ export function ProblemTreeEditor() {
         updateSection('basis-problem', '', 'in-progress');
       }
     } catch { /* silent */ } finally { setGenerating(false); }
-  }, [structure, setStructure, updateSection, buildCtx]);
+  }, [structure, setStructure, updateSection, buildCtx, projectType, pmcSourceDocs]);
 
   // ── AI generate text ──────────────────────────────────────────────────
   const handleGenerateText = useCallback(async () => {

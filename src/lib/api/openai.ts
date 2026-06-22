@@ -70,3 +70,25 @@ export async function streamText(
   }
   return fullText;
 }
+
+export async function streamTextPro(
+  messages: Msg[],
+  systemPrompt: string,
+  onChunk: (text: string) => void
+): Promise<string> {
+  const openai = getClient();
+  const stream = await openai.chat.completions.create({
+    model: MODEL_PRO,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    max_tokens: 4096,
+    temperature: 0.65,
+    stream: true,
+  });
+
+  let fullText = '';
+  for await (const chunk of stream) {
+    const text = chunk.choices[0]?.delta?.content ?? '';
+    if (text) { fullText += text; onChunk(text); }
+  }
+  return fullText;
+}

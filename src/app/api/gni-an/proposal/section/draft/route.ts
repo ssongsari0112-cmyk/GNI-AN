@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcSourceText } from '@/lib/pmcContext';
 
 /* ─────────────────────────────────────────────
    System prompt shared by all sections
@@ -1277,15 +1278,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Build PMC source text if available
-    let pmcSourceText = '';
-    if (projectType === 'pmc' && Array.isArray(pmcSourceDocs) && pmcSourceDocs.length > 0) {
-      pmcSourceText = pmcSourceDocs
-        .map((doc: { fileName: string; extractedText: string }) =>
-          `--- ${doc.fileName} ---\n${doc.extractedText.slice(0, 8000)}`
-        )
-        .join('\n\n')
-        .slice(0, 15000);
-    }
+    const pmcSourceText = projectType === 'pmc'
+      ? buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 })
+      : '';
 
     const ctx: Record<string, string> = {
       title:               projectContext?.title               || '',

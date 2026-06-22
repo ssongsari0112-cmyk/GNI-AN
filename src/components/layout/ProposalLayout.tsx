@@ -167,7 +167,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 }
 
 function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTitle: string }) {
-  const { sections, ideation, project, structure, setStructure, updateSection, updateSectionAiDraft } = useProjectStore();
+  const { sections, ideation, project, structure, setStructure, updateSection, updateSectionAiDraft, projectType, pmcSourceDocs } = useProjectStore();
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string; image?: string; updated?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -240,6 +240,8 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
           pdm: structure?.pdm || [],
           message: question,
           projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
+          projectType,
+          pmcSourceDocs,
         }),
       });
       const data = await res.json();
@@ -297,6 +299,8 @@ function AiAssistant({ sectionId, sectionTitle }: { sectionId: string; sectionTi
           message: question,
           projectContext: { field: ideation?.field, country: ideation?.country, title: project?.title },
           imageDataUrl: imageToSend || undefined,
+          projectType,
+          pmcSourceDocs,
         }),
       });
       const data = await res.json();

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText, isOpenAIConfigured } from '@/lib/api/openai';
+import { streamTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcPromptBlock } from '@/lib/pmcContext';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sectionId, sectionTitle, content, question, projectContext, imageDataUrl } = await req.json();
+    const { sectionId, sectionTitle, content, question, projectContext, imageDataUrl, projectType, pmcSourceDocs } = await req.json();
 
     const systemPrompt = `당신은 KOICA 시민사회협력사업 제안서 작성 전문 AI 어시스턴트입니다.
 현재 "${sectionTitle}" 섹션 작성을 돕고 있습니다.
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     const contextInfo = projectContext
       ? `프로젝트 정보: 분야=${projectContext.field}, 국가=${projectContext.country}, 사업명=${projectContext.title || '미지정'}`
       : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
 
     if (!isOpenAIConfigured()) {
       const encoder = new TextEncoder();
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const questionText = `${contextInfo}
-
+${pmcBlock}
 현재 작성된 내용:
 ${content || '(아직 작성되지 않았습니다)'}
 
@@ -58,7 +60,7 @@ ${content || '(아직 작성되지 않았습니다)'}
                 : questionText,
             },
           ];
-          await streamText(messages, systemPrompt, (chunk) => {
+          await streamTextPro(messages, systemPrompt, (chunk) => {
             controller.enqueue(encoder.encode(chunk));
           });
           controller.close();

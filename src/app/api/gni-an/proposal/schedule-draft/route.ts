@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcSourceText } from '@/lib/pmcContext';
 
 const SYSTEM_PROMPT = `당신은 KOICA 제안서 "부문별 상세 사업 추진일정"(간트차트) 수립 전문가입니다.
 주어진 활동 목록과 전체 사업 기간(월 수)을 바탕으로, 각 활동이 몇 번째 달부터
@@ -30,14 +31,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'AI가 설정되지 않아 자동완성을 사용할 수 없습니다.' }, { status: 400 });
     }
 
-    let pmcSection = '';
-    if (projectType === 'pmc' && Array.isArray(pmcSourceDocs) && pmcSourceDocs.length > 0) {
-      const combined = pmcSourceDocs
-        .map((doc: { fileName: string; extractedText: string }) => `--- ${doc.fileName} ---\n${doc.extractedText.slice(0, 6000)}`)
-        .join('\n\n')
-        .slice(0, 12000);
-      pmcSection = `\n[KOICA 집행계획(안) 원문 — 아래 원문에 제시된 추진일정·연차별 계획을 최대한 그대로 반영하세요]\n${combined}\n[/집행계획(안)]\n`;
-    }
+    const pmcText = projectType === 'pmc'
+      ? buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 })
+      : '';
+    const pmcSection = pmcText
+      ? `\n[KOICA 집행계획(안) 원문 — 아래 원문에 제시된 추진일정·연차별 계획을 최대한 그대로 반영하세요]\n${pmcText}\n[/집행계획(안)]\n`
+      : '';
 
     const contextLine = projectContext
       ? `사업명=${projectContext.title || '-'}, 국가=${projectContext.country || '-'}, 분야=${projectContext.field || '-'}`

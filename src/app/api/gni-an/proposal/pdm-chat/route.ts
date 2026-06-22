@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { buildPmcPromptBlock } from '@/lib/pmcContext';
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -41,7 +42,7 @@ const SYSTEM_PROMPT = `당신은 KOICA 제안서 PDM(Project Design Matrix) 편�
 
 export async function POST(req: NextRequest) {
   try {
-    const { pdm, message, projectContext } = await req.json();
+    const { pdm, message, projectContext, projectType, pmcSourceDocs } = await req.json();
 
     if (!isOpenAIConfigured()) {
       return NextResponse.json({
@@ -54,9 +55,10 @@ export async function POST(req: NextRequest) {
     const contextLine = projectContext
       ? `사업명=${projectContext.title || '미지정'}, 국가=${projectContext.country || '-'}, 분야=${projectContext.field || '-'}`
       : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
 
     const userPrompt = `[프로젝트 정보] ${contextLine}
-
+${pmcBlock}
 [현재 PDM JSON]
 ${JSON.stringify(pdm || [])}
 
