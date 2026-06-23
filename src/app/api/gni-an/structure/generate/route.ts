@@ -17,13 +17,32 @@ function sanitizePdmInputs(inputs: unknown): unknown {
   }));
 }
 
+/** "사업 구체화" 단계 질문 5개(핵심문제/원인/종료 후 모습/수혜자/개입방식) 답변을
+ *  구조화 프롬프트에 추가 컨텍스트로 주입 */
+function buildClarifyBlock(
+  clarifyQuestions?: { id: string }[],
+  clarifyAnswers?: Record<string, string>
+): string {
+  if (!clarifyQuestions?.length || !clarifyAnswers) return '';
+  const labels = ['핵심 문제(구체적 상황)', '문제의 원인', '사업 종료 후 달라질 모습', '수혜자(누구, 몇 명)', '주요 개입 방식'];
+  const lines = clarifyQuestions.slice(0, 5).map((q, i) => {
+    const answer = clarifyAnswers[q.id];
+    if (!answer?.trim()) return null;
+    return `- ${labels[i] || `답변 ${i + 1}`}: ${answer.trim()}`;
+  }).filter(Boolean);
+  if (!lines.length) return '';
+  return `\n사용자가 "사업 구체화" 단계에서 직접 작성한 답변(최우선 반영 — 추측해서 바꾸지 말고 아래
+구체적 사실을 그대로 활용):\n${lines.join('\n')}\n`;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { ideation, analysis, expertSessions, projectType, pmcSourceDocs } = await req.json();
+    const { ideation, analysis, expertSessions, projectType, pmcSourceDocs, clarifyQuestions, clarifyAnswers } = await req.json();
 
     const consultingContext = expertSessions
       ?.map((s: { expertId: string; summary?: string }) => `[${s.expertId} 전문가 상담]: ${s.summary || ''}`)
       .join('\n') || '';
+    const clarifyBlock = buildClarifyBlock(clarifyQuestions, clarifyAnswers);
 
     const systemPrompt = PROMPTS.structureSystem;
 
@@ -48,7 +67,7 @@ AI 분석 결과:
 
 전문가 상담 인사이트:
 ${consultingContext || '(상담 내용 없음)'}
-
+${clarifyBlock}
 [최우선 — 사업 아이디어에 사용자가 명시적으로 요청한 내용은 절대 누락 금지]
 위 "사업 아이디어" 텍스트 안에 "~꼭 추가해줘", "~포함해줘", "~빠지지 않게 해줘", "~반드시 ~하게 해줘"
 처럼 사용자가 직접 요청한 구체적 내용이 있으면, 이를 가장 중요한 요구사항으로 간주하여 Outcome·

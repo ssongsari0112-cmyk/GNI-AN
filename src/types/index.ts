@@ -62,6 +62,12 @@ export interface ExpertSession {
   insights?: string[];
 }
 
+export interface ClarifyQuestion {
+  id: string;
+  question: string;
+  placeholder: string;
+}
+
 export interface ProblemTreeNode {
   id: string;
   text: string;

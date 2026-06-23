@@ -7,13 +7,15 @@ import { clsx } from 'clsx';
 const STEPS = [
   { label: '아이디어', path: '/gni-an/ideation' },
   { label: '컨설팅', path: '/gni-an/ideation/experts' },
+  { label: '사업구체화', path: '/gni-an/ideation/clarify' },
   { label: '구조화', path: '/gni-an/ideation/structure' },
   { label: '개요서', path: '/gni-an/ideation/summary' },
 ];
 
 function getStepIndex(pathname: string): number {
-  if (pathname.includes('/summary')) return 3;
-  if (pathname.includes('/structure')) return 2;
+  if (pathname.includes('/summary')) return 4;
+  if (pathname.includes('/structure')) return 3;
+  if (pathname.includes('/clarify')) return 2;
   if (pathname.includes('/experts')) return 1;
   return 0;
 }

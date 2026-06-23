@@ -4,7 +4,18 @@ import { parseAIJson } from '@/lib/parseJSON';
 
 export async function POST(req: NextRequest) {
   try {
-    const { ideation, analysis, structure, expertSessions } = await req.json();
+    const { ideation, analysis, structure, expertSessions, clarifyQuestions, clarifyAnswers } = await req.json();
+
+    const clarifyLines = (clarifyQuestions || []).slice(0, 5)
+      .map((q: { id: string }, i: number) => {
+        const labels = ['핵심 문제', '문제의 원인', '사업 종료 후 달라질 모습', '수혜자', '주요 개입 방식'];
+        const answer = clarifyAnswers?.[q.id];
+        return answer?.trim() ? `- ${labels[i] || `답변 ${i + 1}`}: ${answer.trim()}` : null;
+      })
+      .filter(Boolean);
+    const clarifyBlock = clarifyLines.length
+      ? `\n사용자가 "사업 구체화" 단계에서 직접 작성한 답변(최우선 반영):\n${clarifyLines.join('\n')}\n`
+      : '';
 
     const systemPrompt = `당신은 KOICA 시민사회협력사업 제안서 전문 작성 보조 AI입니다.
 사업개요서의 각 섹션을 전문적이고 구체적으로 작성합니다.
@@ -21,7 +32,7 @@ export async function POST(req: NextRequest) {
 수혜자: ${analysis?.targetBeneficiaries}
 사업목적: ${structure?.objectiveTree?.purpose || ''}
 영향: ${structure?.objectiveTree?.impact || ''}
-
+${clarifyBlock}
 다음 JSON 형식으로 반환해주세요:
 {
   "basicInfo": {

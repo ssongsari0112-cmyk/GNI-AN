@@ -155,7 +155,7 @@ export default function ExpertsPage() {
   }
 
   function handleNext() {
-    router.push('/gni-an/ideation/structure');
+    router.push('/gni-an/ideation/clarify');
   }
 
   if (!experts.length) {

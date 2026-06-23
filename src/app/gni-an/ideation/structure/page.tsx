@@ -725,7 +725,7 @@ function StructureAiAssistant({ activeTab, structure, ideation, project, project
 /* ── 메인 페이지 ──────────────────────────────── */
 export default function StructurePage() {
   const router = useRouter();
-  const { ideation, ideationAnalysis, expertSessions, project, setStructure, setInsights, insights, structure, projectType, pmcSourceDocs } = useProjectStore();
+  const { ideation, ideationAnalysis, expertSessions, project, setStructure, setInsights, insights, structure, projectType, pmcSourceDocs, clarifyQuestions, clarifyAnswers } = useProjectStore();
 
   const [loading, setLoading] = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -758,7 +758,7 @@ export default function StructurePage() {
       const res = await fetch('/api/gni-an/structure/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideation, analysis: ideationAnalysis, expertSessions: sessions, projectType, pmcSourceDocs }),
+        body: JSON.stringify({ ideation, analysis: ideationAnalysis, expertSessions: sessions, projectType, pmcSourceDocs, clarifyQuestions, clarifyAnswers }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
