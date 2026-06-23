@@ -80,14 +80,22 @@ export function adjustBoundary(ranges: Range[], desired: number, minBoundary: nu
       // 옮길 수 있는 영역(표 전체 등) 중 가장 바깥쪽으로 한 번에 결정 — 이후 그 영역 내부를
       // 다시 검사하면 표 전체가 또 "분할 금지"로 잡혀 무한히 표의 끝까지 밀려나가는
       // 문제가 생기므로, movable을 찾으면 즉시 확정한다.
-      return Math.min(...movable.map((r) => r.top));
+      const moved = Math.min(...movable.map((r) => r.top));
+      // 옮긴 위치가 시작점에서 한 페이지 분량보다 멀면(앞에 이미 다른 내용이 있던 경우),
+      // 그대로 옮기면 슬라이스가 한 페이지보다 커져 페이지 밖으로 잘려나간다 — 옮기지 않고
+      // 원래 경계에서 자른다(아래로 폴스루).
+      if (moved - minBoundary <= pageHeightPx + 0.5) return moved;
     }
 
     const innermost = straddlers.reduce((a, b) => (b.bottom - b.top < a.bottom - a.top ? b : a));
     if (innermost.bottom <= boundary + 0.5) return boundary; // 진행이 없으면 무한루프 방지
+    // 분할 금지 블록 자체가 한 페이지보다 커서, 그 끝까지 밀면 슬라이스가 한 페이지를 넘는
+    // 경우 — 무리하게 통째로 옮기면 페이지 밖으로 잘려 내용이 사라지므로, 정상 경계에서
+    // 블록을 분할해서라도(시각적으로는 다소 어색해도) 내용 손실을 방지한다.
+    if (innermost.bottom - minBoundary > pageHeightPx + 0.5) return desired;
     boundary = innermost.bottom;
   }
-  return boundary;
+  return desired;
 }
 
 /**
