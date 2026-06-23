@@ -33,6 +33,13 @@ function DocPage({ children, style, landscape = false }: { children: ReactNode; 
   );
 }
 
+/** HTML 문자열이 비어있지 않더라도(예: "<p></p>", 공백뿐인 태그) 실제로 보이는 텍스트가
+ *  없으면 빈 것으로 간주 — 그렇지 않으면 내용 없는 빈 페이지가 PDF에 그대로 만들어짐 */
+function hasVisibleText(html?: string | null): boolean {
+  if (!html) return false;
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0;
+}
+
 /* ── 섹션 파트 구분 ───────────────────────────── */
 const PARTS = [
   { key: 'I', title: 'I. 사업 기본 현황', codes: ['I-1 가','I-1 나','I-1 다','I-1 라','I-1 마','I-1 바','I-2 가','I-2 나','I-2 다','I-2 라'] },
@@ -403,7 +410,7 @@ export default function PDFPreviewPage() {
 
   function isSectionFilled(sectionId: string) {
     if (sectionId === 'monitoring-schedule') return scheduleActivities.length > 0;
-    return !!sections[sectionId]?.content;
+    return hasVisibleText(sections[sectionId]?.content);
   }
 
   const filledSections = PROPOSAL_SECTIONS.filter((s) => isSectionFilled(s.id));
@@ -538,7 +545,8 @@ export default function PDFPreviewPage() {
           const isPdm = section.id === 'plan-pdm';
           const isProblemTree = section.id === 'basis-problem';
           const isObjTree = section.id === 'basis-objective';
-          const content = sections[section.id]?.content;
+          const rawContent = sections[section.id]?.content;
+          const content = hasVisibleText(rawContent) ? rawContent : '';
 
           const hasPdm = isPdm && structure?.pdm && structure.pdm.length > 0;
           const hasProblemTree = isProblemTree && !!structure?.problemTree?.coreProblem;
