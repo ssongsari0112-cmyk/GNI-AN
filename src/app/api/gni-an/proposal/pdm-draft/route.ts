@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcSourceText, buildReferencePromptBlock } from '@/lib/pmcContext';
+import { reconcilePdmWithObjectiveTree } from '@/lib/reconcilePdm';
+import { sanitizeDeep } from '@/lib/parseJSON';
 import type { PDMRow, PDMInput } from '@/types';
 
 function uid() {
@@ -288,7 +290,7 @@ function sanitizeInputs(inputs: PDMInput[]): PDMInput[] {
 function parsePdmResult(raw: string): { pdm: PDMRow[]; inputs: PDMInput[] } | null {
   try {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = sanitizeDeep(JSON.parse(cleaned));
     if (Array.isArray(parsed.pdm) && parsed.pdm.length > 0) {
       return {
         pdm: parsed.pdm,
@@ -429,7 +431,16 @@ ${contextLines}
       const withIds = JSON.parse(
         JSON.stringify(result).replace(/"id"\s*:\s*""/g, () => `"id":"${uid()}"`)
       );
-      return NextResponse.json({ success: true, pdm: withIds.pdm, inputs: withIds.inputs });
+      // 목표체계(objectiveTree)와 PDM이 별도 호출로 생성되어 서로 어긋나는 경우가 있어,
+      // PDM의 Outcome/Output/Activity 구조·문구를 objectiveTree 기준으로 강제 일치시킴
+      let pdm = withIds.pdm;
+      if (ctx.objectiveTree) {
+        try {
+          const objectiveTree = JSON.parse(ctx.objectiveTree);
+          pdm = reconcilePdmWithObjectiveTree(objectiveTree, withIds.pdm);
+        } catch { /* objectiveTree 파싱 실패 시 AI 결과 그대로 사용 */ }
+      }
+      return NextResponse.json({ success: true, pdm, inputs: withIds.inputs });
     }
 
     return NextResponse.json({ success: true, pdm: buildFallbackPdm(ctx), inputs: buildFallbackInputs() });

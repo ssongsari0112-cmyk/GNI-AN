@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Save, Eye, FileDown, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Check, Search } from 'lucide-react';
+import { Sparkles, Save, Eye, Menu, X, ChevronRight, ChevronLeft, ChevronDown, MessageSquare, Send, Settings, Paperclip, Check, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useProjectStore } from '@/lib/store/projectStore';
 import { PROPOSAL_SECTIONS } from '@/types';
@@ -518,12 +518,9 @@ export function ProposalLayout({ children, sectionId, sectionTitle }: ProposalLa
           </button>
           <button
             onClick={() => router.push('/gni-an/proposal/pdf-preview')}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#8AA81E] border border-gray-200 hover:border-[#8AA81E] rounded-lg px-2.5 py-1.5 transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg px-2.5 py-1.5 transition-colors"
           >
             <Eye size={13} />미리보기
-          </button>
-          <button className="flex items-center gap-1.5 text-xs bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg px-2.5 py-1.5 transition-colors">
-            <FileDown size={13} />PDF 저장
           </button>
         </div>
       </header>

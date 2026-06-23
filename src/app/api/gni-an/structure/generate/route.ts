@@ -3,6 +3,7 @@ import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { PROMPTS } from '@/lib/prompts';
 import { parseAIJson } from '@/lib/parseJSON';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
+import { reconcilePdmWithObjectiveTree } from '@/lib/reconcilePdm';
 
 // AI가 지침을 어기고 구체적 금액을 추측해 적는 경우를 대비한 안전장치
 function sanitizeBudgetAmounts(text: string): string {
@@ -337,6 +338,11 @@ Output 구조도 동일한 대응을 따르세요.
     const result = await generateTextPro([{ role: 'user', content: userMessage }], systemPrompt);
     const parsed = parseAIJson(result) as any;
     if (parsed?.pdmInputs) parsed.pdmInputs = sanitizePdmInputs(parsed.pdmInputs);
+    // 목표체계(objectiveTree)와 PDM이 같은 응답 안에서도 서로 어긋나는 경우가 있어,
+    // PDM의 Outcome/Output/Activity 구조·문구를 objectiveTree 기준으로 강제 일치시킴
+    if (parsed?.objectiveTree && parsed?.pdm) {
+      parsed.pdm = reconcilePdmWithObjectiveTree(parsed.objectiveTree, parsed.pdm);
+    }
 
     return NextResponse.json({ success: true, data: parsed });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
+import { sanitizeDeep } from '@/lib/parseJSON';
 
 /* ── 목표나무 생성 (문제나무의 부정적 표현 → 긍정적 전환) ─────────────── */
 
@@ -141,7 +142,7 @@ JSON만 출력:`;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON found');
 
-    const tree = JSON.parse(jsonMatch[0]);
+    const tree = sanitizeDeep(JSON.parse(jsonMatch[0]));
 
     if (!tree.impact || !tree.purpose || !Array.isArray(tree.outcomes)) {
       throw new Error('Invalid tree structure');

@@ -41,6 +41,9 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
   page.querySelectorAll<HTMLElement>('tr').forEach(pushEl);
   page.querySelectorAll<HTMLElement>('li').forEach(pushEl);
   page.querySelectorAll<HTMLElement>(`.${PDF_ATOMIC_CLASS}`).forEach(pushEl);
+  // 본문 문단·제목 자체도 분할 금지 — 그렇지 않으면 줄 중간에서 페이지가 잘려
+  // 글자가 위/아래 페이지로 쪼개진 것처럼 보이는 문제가 생김
+  page.querySelectorAll<HTMLElement>('p, h1, h2, h3, h4, h5, h6').forEach(pushEl);
 
   // 제목(p/h3) 바로 다음에 표/목록/분할금지블록이 오면, 제목만 페이지 끝에 혼자 남지 않도록
   // 묶어서 보호. .doc-content 내부뿐 아니라 페이지 전체(예: PDM 표 제목)에 적용
