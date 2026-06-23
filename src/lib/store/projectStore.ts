@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 import type {
   Project, IdeationData, IdeationAnalysis, Expert, ExpertSession,
   StructureData, ProjectSummary, ProposalSection, ScheduleActivity, Insight,
-  SectionStatus, PROPOSAL_SECTIONS, ProjectDetails, ClarifyQuestion
+  SectionStatus, PROPOSAL_SECTIONS, ProjectDetails, ClarifyMessage
 } from '@/types';
 import { PROPOSAL_SECTIONS as SECTIONS, DEFAULT_PROJECT_DETAILS } from '@/types';
 
@@ -40,8 +40,8 @@ export interface ProjectSnapshot {
   ideationAnalysis: IdeationAnalysis | null;
   experts: Expert[];
   expertSessions: ExpertSession[];
-  clarifyQuestions: ClarifyQuestion[];
-  clarifyAnswers: Record<string, string>;
+  clarifyMessages: ClarifyMessage[];
+  clarifyConfirmed: boolean;
   structure: StructureData | null;
   summary: ProjectSummary | null;
   sections: Record<string, ProposalSection>;
@@ -59,8 +59,8 @@ interface ProjectStore {
   ideationAnalysis: IdeationAnalysis | null;
   experts: Expert[];
   expertSessions: ExpertSession[];
-  clarifyQuestions: ClarifyQuestion[];
-  clarifyAnswers: Record<string, string>;
+  clarifyMessages: ClarifyMessage[];
+  clarifyConfirmed: boolean;
   structure: StructureData | null;
   summary: ProjectSummary | null;
   sections: Record<string, ProposalSection>;
@@ -81,8 +81,9 @@ interface ProjectStore {
   setExperts: (e: Expert[]) => void;
   updateExpertSession: (session: ExpertSession) => void;
   completeExpert: (expertId: string) => void;
-  setClarifyQuestions: (qs: ClarifyQuestion[]) => void;
-  setClarifyAnswer: (id: string, value: string) => void;
+  setClarifyMessages: (msgs: ClarifyMessage[]) => void;
+  addClarifyMessage: (msg: ClarifyMessage) => void;
+  setClarifyConfirmed: (v: boolean) => void;
   setStructure: (s: StructureData) => void;
   setSummary: (s: ProjectSummary) => void;
   updateSection: (id: string, content: string, status: SectionStatus) => void;
@@ -129,8 +130,8 @@ export const useProjectStore = create<ProjectStore>()(
       ideationAnalysis: null,
       experts: [],
       expertSessions: [],
-      clarifyQuestions: [],
-      clarifyAnswers: {},
+      clarifyMessages: [],
+      clarifyConfirmed: false,
       structure: null,
       summary: null,
       sections: initSections(),
@@ -163,9 +164,9 @@ export const useProjectStore = create<ProjectStore>()(
             e.id === expertId ? { ...e, status: 'completed' } : e
           ),
         })),
-      setClarifyQuestions: (qs) => set({ clarifyQuestions: qs }),
-      setClarifyAnswer: (id, value) =>
-        set((state) => ({ clarifyAnswers: { ...state.clarifyAnswers, [id]: value } })),
+      setClarifyMessages: (msgs) => set({ clarifyMessages: msgs }),
+      addClarifyMessage: (msg) => set((state) => ({ clarifyMessages: [...state.clarifyMessages, msg] })),
+      setClarifyConfirmed: (v) => set({ clarifyConfirmed: v }),
       setStructure: (s) => set({ structure: s }),
       setSummary: (s) => set({ summary: s }),
       updateSection: (id, content, status) =>
@@ -206,8 +207,8 @@ export const useProjectStore = create<ProjectStore>()(
           ideationAnalysis: state.ideationAnalysis,
           experts: state.experts,
           expertSessions: state.expertSessions,
-          clarifyQuestions: state.clarifyQuestions,
-          clarifyAnswers: state.clarifyAnswers,
+          clarifyMessages: state.clarifyMessages,
+          clarifyConfirmed: state.clarifyConfirmed,
           structure: state.structure,
           summary: state.summary,
           sections: state.sections,
@@ -237,8 +238,8 @@ export const useProjectStore = create<ProjectStore>()(
           ideationAnalysis: snap.ideationAnalysis,
           experts: snap.experts,
           expertSessions: snap.expertSessions,
-          clarifyQuestions: snap.clarifyQuestions,
-          clarifyAnswers: snap.clarifyAnswers,
+          clarifyMessages: snap.clarifyMessages,
+          clarifyConfirmed: snap.clarifyConfirmed,
           structure: snap.structure,
           summary: snap.summary,
           sections: snap.sections,
@@ -260,8 +261,8 @@ export const useProjectStore = create<ProjectStore>()(
             ideationAnalysis: null,
             experts: [],
             expertSessions: [],
-            clarifyQuestions: [],
-            clarifyAnswers: {},
+            clarifyMessages: [],
+            clarifyConfirmed: false,
             structure: null,
             summary: null,
             sections: initSections(),
@@ -284,8 +285,8 @@ export const useProjectStore = create<ProjectStore>()(
           ideationAnalysis: null,
           experts: [],
           expertSessions: [],
-          clarifyQuestions: [],
-          clarifyAnswers: {},
+          clarifyMessages: [],
+          clarifyConfirmed: false,
           structure: null,
           summary: null,
           sections: initSections(),

@@ -62,10 +62,13 @@ export interface ExpertSession {
   insights?: string[];
 }
 
-export interface ClarifyQuestion {
-  id: string;
-  question: string;
-  placeholder: string;
+/** 사업 구체화 단계의 대화형 메시지. assistant 메시지에는 빠른 선택용 버튼(options)이
+ *  딸려올 수 있고, isFinal이면 "이대로 진행할까요?" 확인 메시지임 */
+export interface ClarifyMessage {
+  role: 'assistant' | 'user';
+  content: string;
+  options?: string[];
+  isFinal?: boolean;
 }
 
 export interface ProblemTreeNode {

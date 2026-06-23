@@ -17,32 +17,22 @@ function sanitizePdmInputs(inputs: unknown): unknown {
   }));
 }
 
-/** "사업 구체화" 단계 질문 5개(핵심문제/원인/종료 후 모습/수혜자/개입방식) 답변을
- *  구조화 프롬프트에 추가 컨텍스트로 주입 */
-function buildClarifyBlock(
-  clarifyQuestions?: { id: string }[],
-  clarifyAnswers?: Record<string, string>
-): string {
-  if (!clarifyQuestions?.length || !clarifyAnswers) return '';
-  const labels = ['핵심 문제(구체적 상황)', '문제의 원인', '사업 종료 후 달라질 모습', '수혜자(누구, 몇 명)', '주요 개입 방식'];
-  const lines = clarifyQuestions.slice(0, 5).map((q, i) => {
-    const answer = clarifyAnswers[q.id];
-    if (!answer?.trim()) return null;
-    return `- ${labels[i] || `답변 ${i + 1}`}: ${answer.trim()}`;
-  }).filter(Boolean);
-  if (!lines.length) return '';
-  return `\n사용자가 "사업 구체화" 단계에서 직접 작성한 답변(최우선 반영 — 추측해서 바꾸지 말고 아래
+/** "사업 구체화" 단계 대화 내용을 구조화 프롬프트에 추가 컨텍스트로 주입 */
+function buildClarifyBlock(clarifyMessages?: { role: 'assistant' | 'user'; content: string }[]): string {
+  if (!clarifyMessages?.length) return '';
+  const lines = clarifyMessages.map((m) => `${m.role === 'assistant' ? 'AI 질문' : '사용자 답변'}: ${m.content}`);
+  return `\n사용자가 "사업 구체화" 단계에서 직접 나눈 대화(최우선 반영 — 추측해서 바꾸지 말고 아래
 구체적 사실을 그대로 활용):\n${lines.join('\n')}\n`;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { ideation, analysis, expertSessions, projectType, pmcSourceDocs, clarifyQuestions, clarifyAnswers } = await req.json();
+    const { ideation, analysis, expertSessions, projectType, pmcSourceDocs, clarifyMessages } = await req.json();
 
     const consultingContext = expertSessions
       ?.map((s: { expertId: string; summary?: string }) => `[${s.expertId} 전문가 상담]: ${s.summary || ''}`)
       .join('\n') || '';
-    const clarifyBlock = buildClarifyBlock(clarifyQuestions, clarifyAnswers);
+    const clarifyBlock = buildClarifyBlock(clarifyMessages);
 
     const systemPrompt = PROMPTS.structureSystem;
 

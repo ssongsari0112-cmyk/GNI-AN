@@ -54,7 +54,7 @@ function EditableSection({ label, value, onSave }: EditableSectionProps) {
 
 export default function SummaryPage() {
   const router = useRouter();
-  const { ideation, ideationAnalysis, structure, expertSessions, getCompletedExpertsCount, setSummary, summary, clarifyQuestions, clarifyAnswers } = useProjectStore();
+  const { ideation, ideationAnalysis, structure, expertSessions, getCompletedExpertsCount, setSummary, summary, clarifyMessages } = useProjectStore();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -74,7 +74,7 @@ export default function SummaryPage() {
       const res = await fetch('/api/gni-an/summary/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideation, analysis: ideationAnalysis, structure, expertSessions: sessions, clarifyQuestions, clarifyAnswers }),
+        body: JSON.stringify({ ideation, analysis: ideationAnalysis, structure, expertSessions: sessions, clarifyMessages }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
