@@ -228,13 +228,13 @@ type ProblemTreeData = { effects: ProblemTreeNode[]; coreProblem: string; causes
 function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
   const TREE_FONT = "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
 
-  const nodeStyle = (bg: string, border: string, color: string, sz = 8.5): CSSProperties => ({
-    background: bg, border: `1.5px solid ${border}`, borderRadius: 6,
-    padding: '6px 9px', color, fontSize: sz, lineHeight: 1.5, fontWeight: 500,
-    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', minWidth: 76, maxWidth: 140,
+  const nodeStyle = (bg: string, border: string, color: string, sz = 7.5): CSSProperties => ({
+    background: bg, border: `1.5px solid ${border}`, borderRadius: 5,
+    padding: '4px 8px', color, fontSize: sz, lineHeight: 1.35, fontWeight: 500,
+    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', minWidth: 70, maxWidth: 160,
   });
 
-  const vLine = (color: string, h = 14): CSSProperties => ({
+  const vLine = (color: string, h = 8): CSSProperties => ({
     width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0,
   });
 
@@ -252,15 +252,15 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
     const hasChildren = node.children && node.children.length > 0;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={nodeStyle(c.bg, c.bd, c.tx, 8.5 - depth * 0.3)}>{node.text}</div>
+        <div style={nodeStyle(c.bg, c.bd, c.tx, 7.5 - depth * 0.3)}>{node.text}</div>
         {hasChildren && (
           <>
-            <div style={vLine('#d97706', 10)} />
+            <div style={vLine('#d97706', 6)} />
             {node.children!.length > 1 && <div style={hBar('#d97706', `${(node.children!.length - 1) * 55}%`)} />}
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
               {node.children!.map(child => (
                 <div key={child.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  {node.children!.length > 1 && <div style={vLine('#d97706', 10)} />}
+                  {node.children!.length > 1 && <div style={vLine('#d97706', 6)} />}
                   <CauseCol node={child} depth={depth + 1} />
                 </div>
               ))}
@@ -271,13 +271,13 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
     );
   }
 
-  const labelStyle: CSSProperties = { fontSize: 7.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+  const labelStyle: CSSProperties = { fontSize: 6.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 2, fontStyle: 'italic' };
 
   return (
-    <div style={{ padding: '4px 0 8px', fontFamily: TREE_FONT }}>
+    <div style={{ padding: '2px 0 4px', fontFamily: TREE_FONT }}>
       {/* Effects */}
       <div style={labelStyle}>↑ 결과 / 영향 (Effects)</div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
         {tree.effects.map(e => (
           <div key={e.id} style={nodeStyle('#fef2f2', '#fca5a5', '#991b1b')}>{e.text}</div>
         ))}
@@ -286,13 +286,13 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
       {/* Connector: effects → core */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0' }}>
         {tree.effects.length > 1 && <div style={hBar('#9ca3af', `${Math.min(tree.effects.length * 32, 70)}%`)} />}
-        <div style={vLine('#9ca3af', 16)} />
+        <div style={vLine('#9ca3af', 8)} />
       </div>
 
-      {/* Core Problem */}
+      {/* Core Problem — 옆으로 긴 박스로 한 줄에 가깝게 표시 */}
       <div style={labelStyle}>핵심 문제 (Core Problem)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...nodeStyle('#EEF5D6', '#8AA81E', '#3b5c0a', 10), maxWidth: 240, fontWeight: 700, padding: '9px 16px' }}>
+        <div style={{ ...nodeStyle('#EEF5D6', '#8AA81E', '#3b5c0a', 8.5), maxWidth: 640, fontWeight: 700, padding: '5px 18px', whiteSpace: 'nowrap' }}>
           {tree.coreProblem}
         </div>
       </div>
@@ -300,17 +300,17 @@ function ProblemTreePdfView({ tree }: { tree: ProblemTreeData }) {
       {/* Connector: core → causes */}
       {tree.causes.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0' }}>
-          <div style={vLine('#9ca3af', 16)} />
+          <div style={vLine('#9ca3af', 8)} />
           {tree.causes.length > 1 && <div style={hBar('#9ca3af', `${Math.min(tree.causes.length * 28, 80)}%`)} />}
         </div>
       )}
 
       {/* Causes */}
       <div style={labelStyle}>↓ 직접 원인 (Immediate Causes)</div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {tree.causes.map(cause => (
           <div key={cause.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {tree.causes.length > 1 && <div style={vLine('#d97706', 10)} />}
+            {tree.causes.length > 1 && <div style={vLine('#d97706', 6)} />}
             <CauseCol node={cause} depth={0} />
           </div>
         ))}
@@ -324,58 +324,58 @@ type ObjectiveTreeData = { impact: string; purpose: string; outcomes: { id: stri
 
 function ObjectiveTreePdfView({ tree }: { tree: ObjectiveTreeData }) {
   const TREE_FONT = "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
-  const ns = (bg: string, bd: string, color: string, sz = 8.5, maxW = 140): CSSProperties => ({
-    background: bg, border: `1.5px solid ${bd}`, borderRadius: 6,
-    padding: '6px 9px', color, fontSize: sz, lineHeight: 1.5, fontWeight: 500,
-    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', maxWidth: maxW, minWidth: 76,
+  const ns = (bg: string, bd: string, color: string, sz = 7.5, maxW = 160): CSSProperties => ({
+    background: bg, border: `1.5px solid ${bd}`, borderRadius: 5,
+    padding: '4px 8px', color, fontSize: sz, lineHeight: 1.35, fontWeight: 500,
+    fontFamily: TREE_FONT, textAlign: 'center', wordBreak: 'keep-all', maxWidth: maxW, minWidth: 70,
   });
-  const vl = (color: string, h = 12): CSSProperties => ({ width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0 });
+  const vl = (color: string, h = 7): CSSProperties => ({ width: 2, height: h, background: color, margin: '0 auto', flexShrink: 0 });
   const hb = (color: string, w: string | number): CSSProperties => ({ height: 2, background: color, width: w, margin: '0 auto' });
-  const lbl: CSSProperties = { fontSize: 7.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 4, fontStyle: 'italic' };
+  const lbl: CSSProperties = { fontSize: 6.5, fontFamily: TREE_FONT, fontWeight: 600, color: '#777', textAlign: 'center', marginBottom: 2, fontStyle: 'italic' };
 
   return (
-    <div style={{ fontFamily: TREE_FONT, padding: '4px 0 8px' }}>
-      {/* Impact */}
+    <div style={{ fontFamily: TREE_FONT, padding: '2px 0 4px' }}>
+      {/* Impact — 옆으로 긴 박스로 한 줄에 가깝게 표시 */}
       <div style={lbl}>영향 (Impact / Goal)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...ns('#f5f3ff', '#c4b5fd', '#4c1d95', 10, 240), fontWeight: 700, padding: '9px 16px' }}>{tree.impact}</div>
+        <div style={{ ...ns('#f5f3ff', '#c4b5fd', '#4c1d95', 8.5, 640), fontWeight: 700, padding: '5px 18px', whiteSpace: 'nowrap' }}>{tree.impact}</div>
       </div>
 
       {/* Impact → Purpose */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={vl('#9ca3af', 16)} />
+        <div style={vl('#9ca3af', 8)} />
       </div>
 
-      {/* Purpose */}
+      {/* Purpose — 옆으로 긴 박스 */}
       <div style={lbl}>사업목적 (Purpose / Outcome)</div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...ns('#eff6ff', '#93c5fd', '#1e3a8a', 9.5, 220), fontWeight: 600, padding: '8px 13px' }}>{tree.purpose}</div>
+        <div style={{ ...ns('#eff6ff', '#93c5fd', '#1e3a8a', 8, 600), fontWeight: 600, padding: '5px 15px', whiteSpace: 'nowrap' }}>{tree.purpose}</div>
       </div>
 
       {/* Purpose → Outcomes */}
       {tree.outcomes.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={vl('#9ca3af', 16)} />
+          <div style={vl('#9ca3af', 8)} />
           {tree.outcomes.length > 1 && <div style={hb('#9ca3af', `${Math.min(tree.outcomes.length * 28, 80)}%`)} />}
         </div>
       )}
 
       {/* Outcomes + Outputs */}
       <div style={lbl}>성과 (Outcomes) → 산출물 (Outputs)</div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {tree.outcomes.map(oc => (
           <div key={oc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {tree.outcomes.length > 1 && <div style={vl('#6b7280', 10)} />}
-            <div style={ns('#EEF5D6', '#8AA81E', '#3b5c0a', 8.5)}>{oc.text}</div>
+            {tree.outcomes.length > 1 && <div style={vl('#6b7280', 6)} />}
+            <div style={ns('#EEF5D6', '#8AA81E', '#3b5c0a', 7.5, 220)}>{oc.text}</div>
             {oc.children && oc.children.length > 0 && (
               <>
-                <div style={vl('#10b981', 10)} />
+                <div style={vl('#10b981', 6)} />
                 {oc.children.length > 1 && <div style={hb('#10b981', `${(oc.children.length - 1) * 50}%`)} />}
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                   {oc.children.map(out => (
                     <div key={out.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      {oc.children!.length > 1 && <div style={vl('#10b981', 10)} />}
-                      <div style={ns('#ecfdf5', '#6ee7b7', '#065f46', 7.5, 120)}>{out.text}</div>
+                      {oc.children!.length > 1 && <div style={vl('#10b981', 6)} />}
+                      <div style={ns('#ecfdf5', '#6ee7b7', '#065f46', 6.5, 130)}>{out.text}</div>
                     </div>
                   ))}
                 </div>
@@ -572,13 +572,13 @@ export default function PDFPreviewPage() {
                 <>
                   {/* 다이어그램 페이지 — 가로 방향, 다이어그램이 있을 때만 */}
                   {hasTree && (
-                    <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape>
+                    <DocPage style={{ background: 'white', padding: '28px 20px' }} landscape>
                       <div className={PDF_ATOMIC_CLASS}>
                         {sectionTitleEl}
                         <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>
                           {isProblemTree ? '문제나무 (Problem Tree)' : '목표나무 (Objective Tree)'}
                         </p>
-                        <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
+                        <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '10px 6px', marginBottom: 8, background: '#fafbf6' }}>
                           {isProblemTree
                             ? <ProblemTreePdfView tree={structure!.problemTree!} />
                             : <ObjectiveTreePdfView tree={structure!.objectiveTree!} />}
@@ -631,7 +631,15 @@ export default function PDFPreviewPage() {
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; margin: 0; }
-          .doc-page { box-shadow: none !important; margin: 0 !important; }
+          .doc-page {
+            box-shadow: none !important;
+            margin: 0 !important;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .doc-page:last-child { page-break-after: auto; break-after: auto; }
           @page { margin: 15mm; size: A4; }
         }
         .doc-content { font-size: 10pt; line-height: 1.9; color: #222; }
