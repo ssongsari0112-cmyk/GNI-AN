@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
-import { buildPmcPromptBlock } from '@/lib/pmcContext';
+import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 const SYSTEM_PROMPT = `당신은 KOICA 제안서 작성 전문 AI 어시스턴트입니다.
 사용자의 메시지가 "본문 수정 요청"인지 "질문/검토 요청"인지 먼저 판단하세요.
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     const contextLine = projectContext
       ? `분야=${projectContext.field || '-'}, 국가=${projectContext.country || '-'}, 사업명=${projectContext.title || '미지정'}`
       : '';
-    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : buildReferencePromptBlock(pmcSourceDocs);
 
     const questionText = `[프로젝트 정보] ${contextLine}
 ${pmcBlock}

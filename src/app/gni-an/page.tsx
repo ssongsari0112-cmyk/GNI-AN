@@ -1,9 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, FolderOpen, Users, CheckCircle, Download, ArrowRight, X, Lightbulb, MessageSquare, Network, FileEdit, Trash2 } from 'lucide-react';
-import { useProjectStore } from '@/lib/store/projectStore';
+import { useProjectStore, type ProjectSnapshot } from '@/lib/store/projectStore';
+
+const MAX_SAVED_PROJECTS = 5;
 
 const STEPS = [
   { icon: <Lightbulb size={16} />, title: '아이디어 입력', desc: '사업 분야, 지역, 핵심 아이디어를 입력합니다.' },
@@ -21,38 +23,49 @@ function getResumePath(opts: {
   return '/gni-an/ideation';
 }
 
+function countCompleted(sections: ProjectSnapshot['sections']): number {
+  return Object.values(sections).filter((s) => s.status === 'completed').length;
+}
+
 function RecentProjectsModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { project, ideation, structure, sections, getCompletedSectionsCount, reset } = useProjectStore();
-  const hasProject = !!project;
-  const completed = getCompletedSectionsCount();
-  const totalSections = Object.keys(sections).length || 17;
-  const resumePath = getResumePath({
-    hasStructure: !!structure?.problemTree?.coreProblem,
-    hasIdeation: !!ideation,
-  });
+  const { project, savedProjects, saveActiveSnapshot, loadSnapshot, deleteSnapshot } = useProjectStore();
 
-  function handleResume() {
+  useEffect(() => {
+    saveActiveSnapshot(); // 모달을 열 때 현재 작업 중인 프로젝트를 최신 상태로 적립
+  }, [saveActiveSnapshot]);
+
+  const slots = [...savedProjects].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  const hasAny = slots.length > 0;
+
+  function handleResume(snap: ProjectSnapshot) {
+    if (project?.id !== snap.id) loadSnapshot(snap.id);
     onClose();
-    router.push(resumePath);
+    router.push(getResumePath({
+      hasStructure: !!snap.structure?.problemTree?.coreProblem,
+      hasIdeation: !!snap.ideation,
+    }));
   }
 
-  function handleDelete() {
-    if (!confirm('저장된 프로젝트를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
-    reset();
+  function handleDelete(snap: ProjectSnapshot) {
+    if (!confirm(`"${snap.project?.title || '제목 없는 프로젝트'}"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+    deleteSnapshot(snap.id);
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">최근 프로젝트</h3>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h3 className="font-semibold text-gray-800">최근 프로젝트</h3>
+            <p className="text-xs text-gray-400 mt-0.5">이 컴퓨터에 최대 {MAX_SAVED_PROJECTS}개까지 저장됩니다 ({slots.length}/{MAX_SAVED_PROJECTS})</p>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        {!hasProject ? (
+        {!hasAny ? (
           <div className="p-8 text-center">
             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
               <FolderOpen size={20} className="text-gray-400" />
@@ -61,46 +74,58 @@ function RecentProjectsModal({ onClose }: { onClose: () => void }) {
             <p className="text-gray-400 text-xs mt-1">새 프로젝트를 시작해보세요.</p>
           </div>
         ) : (
-          <div className="p-5">
-            <p className="text-xs text-gray-400 mb-2">이 컴퓨터에 저장된 작업 내용입니다.</p>
-            <div className="border border-[#D9E6B7] bg-[#F7F8F2] rounded-xl p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-[#111827] truncate">{project!.title || '제목 없는 프로젝트'}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {[project!.country, project!.field].filter(Boolean).join(' · ') || '국가·분야 미지정'}
-                  </p>
+          <div className="p-5 space-y-3 overflow-y-auto flex-1">
+            {slots.map((snap) => {
+              const completed = countCompleted(snap.sections);
+              const total = Object.keys(snap.sections).length || 17;
+              const isActive = project?.id === snap.id;
+              return (
+                <div key={snap.id} className="border border-[#D9E6B7] bg-[#F7F8F2] rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-[#111827] truncate">{snap.project?.title || '제목 없는 프로젝트'}</p>
+                        {isActive && (
+                          <span className="text-[10px] font-medium text-[#5a7012] bg-[#D9E6B7] rounded-full px-1.5 py-0.5 flex-shrink-0">현재 작업 중</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {[snap.project?.country, snap.project?.field].filter(Boolean).join(' · ') || '국가·분야 미지정'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDelete(snap)}
+                      title="삭제"
+                      className="text-gray-300 hover:text-red-400 flex-shrink-0 p-1"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-gray-500">작성 진행률</span>
+                    <span className="text-xs font-bold text-[#8AA81E]">{completed}/{total}</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1.5 mb-3">
+                    <div
+                      className="h-full bg-[#8AA81E] rounded-full"
+                      style={{ width: `${total ? Math.round((completed / total) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleResume(snap)}
+                    className="block w-full bg-white border border-[#D9E6B7] hover:bg-[#EEF5D6] text-[#5a7012] rounded-lg py-2 text-xs font-medium text-center transition-colors"
+                  >
+                    이어서 작업하기
+                  </button>
                 </div>
-                <button
-                  onClick={handleDelete}
-                  title="삭제"
-                  className="text-gray-300 hover:text-red-400 flex-shrink-0 p-1"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-xs text-gray-500">작성 진행률</span>
-                <span className="text-xs font-bold text-[#8AA81E]">{completed}/{totalSections}</span>
-              </div>
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1.5">
-                <div
-                  className="h-full bg-[#8AA81E] rounded-full"
-                  style={{ width: `${totalSections ? Math.round((completed / totalSections) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
+              );
+            })}
           </div>
         )}
 
-        <div className="p-4 border-t border-gray-100">
-          {hasProject ? (
-            <button
-              onClick={handleResume}
-              className="block w-full bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg py-2.5 text-sm font-medium text-center transition-colors"
-            >
-              이어서 작업하기
-            </button>
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
+          {slots.length >= MAX_SAVED_PROJECTS ? (
+            <p className="text-xs text-gray-400 text-center">저장 슬롯이 모두 찼습니다. 새 프로젝트를 시작하려면 위에서 하나를 삭제해주세요.</p>
           ) : (
             <Link
               href="/gni-an/project/new"

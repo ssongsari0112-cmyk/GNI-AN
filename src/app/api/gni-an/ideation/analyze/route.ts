@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { parseAIJson } from '@/lib/parseJSON';
+import { buildReferencePromptBlock } from '@/lib/pmcContext';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { field, country, subRegion, idea, beneficiaries, budget, duration } = body;
+    const { field, country, subRegion, idea, beneficiaries, budget, duration, referenceDocs } = body;
+    const referenceBlock = buildReferencePromptBlock(referenceDocs);
 
     if (!isOpenAIConfigured()) {
       return NextResponse.json({
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
 항상 유효한 JSON만 반환하세요. 마크다운 코드블록 없이 순수 JSON만 반환하세요.`;
 
     const userMessage = `다음 사업 아이디어를 분석해주세요:
+${referenceBlock}
 - 사업 분야: ${field}
 - 대상 국가: ${country}
 - 세부 지역: ${subRegion || '미지정'}
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
   "keyInsights": ["인사이트1", "인사이트2", "인사이트3"]
 }`;
 
-    const result = await generateText([{ role: 'user', content: userMessage }], systemPrompt);
+    const result = await generateTextPro([{ role: 'user', content: userMessage }], systemPrompt);
     const parsed = parseAIJson(result);
 
     return NextResponse.json({ success: true, data: parsed });

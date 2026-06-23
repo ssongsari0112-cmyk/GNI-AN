@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { streamTextPro, isOpenAIConfigured } from '@/lib/api/openai';
-import { buildPmcPromptBlock } from '@/lib/pmcContext';
+import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const contextInfo = projectContext
       ? `프로젝트 정보: 분야=${projectContext.field}, 국가=${projectContext.country}, 사업명=${projectContext.title || '미지정'}`
       : '';
-    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : buildReferencePromptBlock(pmcSourceDocs);
 
     if (!isOpenAIConfigured()) {
       const encoder = new TextEncoder();

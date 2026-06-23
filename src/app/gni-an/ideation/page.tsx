@@ -3,9 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { StepHeader } from '@/components/layout/StepHeader';
 import { Button } from '@/components/ui/Button';
-import { useProjectStore } from '@/lib/store/projectStore';
+import { useProjectStore, type PmcSourceDoc } from '@/lib/store/projectStore';
 import type { IdeationData } from '@/types';
-import { AlertCircle, Search, X, MapPin, Sparkles, Send, Loader2, Bot, User, Pencil } from 'lucide-react';
+import { AlertCircle, Search, X, MapPin, Sparkles, Send, Loader2, Bot, User, Pencil, Paperclip, FileText, Image as ImageIcon } from 'lucide-react';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 
 /* ─── 상수 ─────────────────────────────────────────────── */
@@ -351,7 +351,7 @@ function AiAssistant({ formContext }: { formContext: string }) {
 /* ─── 메인 페이지 ────────────────────────────────────────── */
 export default function IdeationPage() {
   const router = useRouter();
-  const { setIdeation, setIdeationAnalysis, setExperts, ideation, projectType, pmcSourceDocs } = useProjectStore();
+  const { setIdeation, setIdeationAnalysis, setExperts, ideation, projectType, pmcSourceDocs, setPmcSourceDocs } = useProjectStore();
 
   const saved = ideation;
   const [form, setForm] = useState<IdeationData>({
@@ -367,6 +367,51 @@ export default function IdeationPage() {
   const [exampleOpen, setExampleOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [attachUploading, setAttachUploading] = useState(false);
+  const attachInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAttachFiles(files: FileList | File[]) {
+    const room = 5 - useProjectStore.getState().pmcSourceDocs.length;
+    const arr = Array.from(files).slice(0, Math.max(0, room));
+    if (arr.length === 0) return;
+    setAttachUploading(true);
+    try {
+      for (const file of arr) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          const fd = new FormData();
+          fd.append('file', file);
+          const res = await fetch('/api/gni-an/pmc/extract-pdf', { method: 'POST', body: fd });
+          const json = await res.json();
+          if (json.success) {
+            const doc: PmcSourceDoc = { fileName: file.name, extractedText: json.text, numPages: json.numPages, uploadedAt: new Date().toISOString() };
+            setPmcSourceDocs([...useProjectStore.getState().pmcSourceDocs, doc]);
+          }
+        } else if (file.type.startsWith('image/')) {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          const res = await fetch('/api/gni-an/ideation/describe-image', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageDataUrl: dataUrl, fileName: file.name }),
+          });
+          const json = await res.json();
+          if (json.success) {
+            const doc: PmcSourceDoc = { fileName: file.name, extractedText: json.description, numPages: 1, uploadedAt: new Date().toISOString() };
+            setPmcSourceDocs([...useProjectStore.getState().pmcSourceDocs, doc]);
+          }
+        }
+      }
+    } finally {
+      setAttachUploading(false);
+    }
+  }
+
+  function removeAttachment(fileName: string) {
+    setPmcSourceDocs(pmcSourceDocs.filter((d) => d.fileName !== fileName));
+  }
 
   const isValid = form.field && form.country && form.idea.length >= 50;
 
@@ -393,7 +438,7 @@ export default function IdeationPage() {
     try {
       setIdeation(form);
       const [analyzeRes, expertsRes] = await Promise.all([
-        fetch('/api/gni-an/ideation/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }),
+        fetch('/api/gni-an/ideation/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, referenceDocs: pmcSourceDocs }) }),
         fetch('/api/gni-an/consulting/experts/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ field: form.field, country: form.country }) }),
       ]);
       const [analyzeData, expertsData] = await Promise.all([analyzeRes.json(), expertsRes.json()]);
@@ -544,6 +589,54 @@ export default function IdeationPage() {
                 </div>
               </div>
             </div>
+
+            {projectType !== 'pmc' && (
+              <div className="border border-dashed border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                    <Paperclip size={13} className="text-gray-400" />
+                    참고 자료 첨부 <span className="text-gray-400 font-normal">(선택, 최대 5개)</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => attachInputRef.current?.click()}
+                    disabled={attachUploading || pmcSourceDocs.length >= 5}
+                    className="text-xs text-[#8AA81E] hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    + 파일 추가
+                  </button>
+                  <input
+                    ref={attachInputRef}
+                    type="file"
+                    accept=".pdf,image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files) handleAttachFiles(e.target.files); e.target.value = ''; }}
+                  />
+                </div>
+                <p className="text-[11px] text-gray-400 mb-2">초안 PDM, 사전조사 자료(PDF), 인사이트를 주는 사진 등을 첨부하면 AI가 참고합니다.</p>
+                {attachUploading && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 py-1">
+                    <Loader2 size={12} className="animate-spin" />분석 중…
+                  </div>
+                )}
+                {pmcSourceDocs.length > 0 && (
+                  <div className="space-y-1">
+                    {pmcSourceDocs.map((doc) => (
+                      <div key={doc.fileName} className="flex items-center gap-2 bg-gray-50 rounded px-2 py-1.5">
+                        {doc.fileName.toLowerCase().endsWith('.pdf')
+                          ? <FileText size={13} className="text-gray-400 flex-shrink-0" />
+                          : <ImageIcon size={13} className="text-gray-400 flex-shrink-0" />}
+                        <span className="text-xs text-gray-600 truncate flex-1">{doc.fileName}</span>
+                        <button type="button" onClick={() => removeAttachment(doc.fileName)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">

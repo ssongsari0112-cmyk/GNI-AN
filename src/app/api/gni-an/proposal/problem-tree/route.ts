@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
-import { buildPmcPromptBlock } from '@/lib/pmcContext';
+import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 /* ── 작성 지침 기반 문제나무 생성 ─────────────────────────────────────── */
 
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, tree: FALLBACK_TREE });
   }
 
-  const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
+  const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : buildReferencePromptBlock(pmcSourceDocs);
 
   const contextLines = [
     title && `사업명: ${title}`,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
-import { buildPmcPromptBlock } from '@/lib/pmcContext';
+import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     const contextLine = projectContext
       ? `사업명=${projectContext.title || '미지정'}, 국가=${projectContext.country || '-'}, 분야=${projectContext.field || '-'}`
       : '';
-    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : buildReferencePromptBlock(pmcSourceDocs);
 
     const userPrompt = `[프로젝트 정보] ${contextLine}
 ${pmcBlock}

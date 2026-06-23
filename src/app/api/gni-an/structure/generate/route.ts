@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { PROMPTS } from '@/lib/prompts';
 import { parseAIJson } from '@/lib/parseJSON';
-import { buildPmcPromptBlock } from '@/lib/pmcContext';
+import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 // AI가 지침을 어기고 구체적 금액을 추측해 적는 경우를 대비한 안전장치
 function sanitizeBudgetAmounts(text: string): string {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = PROMPTS.structureSystem;
 
-    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : '';
+    const pmcBlock = projectType === 'pmc' ? buildPmcPromptBlock(pmcSourceDocs) : buildReferencePromptBlock(pmcSourceDocs);
 
     const userMessage = `다음 정보를 바탕으로 KOICA 시민사회협력사업 구조를 상세하게 생성해주세요.
 모든 항목은 실제 제안서에 바로 활용할 수 있는 수준으로 구체적이고 현실적으로 작성하세요.

@@ -57,6 +57,7 @@ const SYSTEM_PROMPT = `당신은 KOICA 시민사회협력사업 제안서 심사
 function formatContext(ctx: Record<string, string>): string {
   const lines = [
     ctx.pmcSourceText  && `[KOICA 집행계획(안) 원문 발췌 — PMC 모드: 아래 내용을 제안서 작성의 기본 바탕으로 반드시 활용하세요]\n${ctx.pmcSourceText}\n[/KOICA 집행계획(안)]`,
+    ctx.referenceText  && `[담당자 첨부 참고 자료 — 참고용으로 첨부된 자료입니다. 유의미한 내용이면 반영하고, 없는 내용은 추측하지 마세요]\n${ctx.referenceText}\n[/첨부 자료]`,
     ctx.title          && `사업명: ${ctx.title}`,
     ctx.country        && `대상 국가: ${ctx.country}`,
     ctx.region         && `대상 지역: ${ctx.region}`,
@@ -1324,8 +1325,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, html });
     }
 
-    // Build PMC source text if available
+    // Build PMC source text if available, or general reference attachments otherwise
     const pmcSourceText = projectType === 'pmc'
+      ? buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 })
+      : '';
+    const referenceText = projectType !== 'pmc'
       ? buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 })
       : '';
 
@@ -1348,6 +1352,7 @@ export async function POST(req: NextRequest) {
       expertInsights:      projectContext?.expertInsights      || '',
       projectSummary:      projectContext?.projectSummary      || '',
       pmcSourceText,
+      referenceText,
     };
 
     const systemPrompt = pmcSourceText

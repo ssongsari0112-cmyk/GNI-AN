@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
-import { buildPmcSourceText } from '@/lib/pmcContext';
+import { buildPmcSourceText, buildReferencePromptBlock } from '@/lib/pmcContext';
 import type { PDMRow, PDMInput } from '@/types';
 
 function uid() {
@@ -379,12 +379,14 @@ export async function POST(req: NextRequest) {
     }
 
     // PMC 소스 텍스트 빌드
-    const pmcText = projectType === 'pmc'
-      ? buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 })
-      : '';
-    const pmcSection = pmcText
-      ? `\n[KOICA 집행계획(안) 원문 — PDM은 이 내용을 기반으로 작성하고 구조·지표를 최대한 반영하세요]\n${pmcText}\n[/집행계획(안)]\n`
-      : '';
+    const pmcSection = projectType === 'pmc'
+      ? (() => {
+          const pmcText = buildPmcSourceText(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 });
+          return pmcText
+            ? `\n[KOICA 집행계획(안) 원문 — PDM은 이 내용을 기반으로 작성하고 구조·지표를 최대한 반영하세요]\n${pmcText}\n[/집행계획(안)]\n`
+            : '';
+        })()
+      : buildReferencePromptBlock(pmcSourceDocs, { perDocLimit: 24000, totalLimit: 60000 });
 
     const contextLines = [
       ctx.title               && `사업명: ${ctx.title}`,
