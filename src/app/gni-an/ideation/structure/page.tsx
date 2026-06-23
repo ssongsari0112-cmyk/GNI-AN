@@ -771,6 +771,64 @@ export default function StructurePage() {
     }
   }
 
+  /** 문제분석은 그대로 두고, 현재(수정된) 문제분석을 기반으로 목표체계·PDM만 다시 생성 */
+  async function handleRegenerateFromProblem() {
+    if (!structure?.problemTree) return;
+    setLoading(true);
+    setError('');
+    try {
+      const problemTreeJson = JSON.stringify(structure.problemTree);
+
+      const objRes = await fetch('/api/gni-an/proposal/objective-tree', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: project?.title,
+          country: ideation?.country || project?.country,
+          field: ideation?.field || project?.field,
+          idea: ideation?.idea,
+          coreProblem: structure.problemTree.coreProblem,
+          problemTree: problemTreeJson,
+          projectType,
+          pmcSourceDocs,
+        }),
+      });
+      const objData = await objRes.json();
+      if (!objData.success) throw new Error(objData.error || '목표체계 생성에 실패했습니다.');
+
+      const pdmRes = await fetch('/api/gni-an/proposal/pdm-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectContext: {
+            title: project?.title,
+            country: ideation?.country || project?.country,
+            field: ideation?.field || project?.field,
+            coreProblem: structure.problemTree.coreProblem,
+            problemTree: problemTreeJson,
+            objectiveTree: JSON.stringify(objData.tree),
+          },
+          projectType,
+          pmcSourceDocs,
+        }),
+      });
+      const pdmData = await pdmRes.json();
+      if (!pdmData.success) throw new Error(pdmData.error || 'PDM 생성에 실패했습니다.');
+
+      setStructure({
+        ...structure,
+        objectiveTree: objData.tree,
+        pdm: pdmData.pdm,
+        pdmInputs: pdmData.inputs || [],
+      });
+      setActiveTab('objective');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '재생성 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[#F7F8F2]">
       <StepHeader />
@@ -822,10 +880,26 @@ export default function StructurePage() {
                   ))}
                 </div>
 
-                <div className="flex justify-end mb-3">
+                {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
+                {loading && (
+                  <p className="text-xs text-orange-500 mb-2 flex items-center gap-1.5"><AlertTriangle size={12} />생성 중입니다. 잠시만 기다려주세요…</p>
+                )}
+
+                <div className="flex items-center justify-between mb-3">
+                  {activeTab === 'problem' && structure?.problemTree ? (
+                    <button
+                      onClick={handleRegenerateFromProblem}
+                      disabled={loading}
+                      title="문제분석은 그대로 두고, 이 내용을 기반으로 목표체계와 PDM만 다시 생성합니다"
+                      className="flex items-center gap-1.5 text-xs text-white bg-[#8AA81E] hover:bg-[#799516] disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors"
+                    >
+                      <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                      이 문제분석으로 목표체계·PDM 재생성
+                    </button>
+                  ) : <span />}
                   <button onClick={handleGenerate} disabled={loading} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#8AA81E] transition-colors">
                     <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-                    재생성
+                    전체 재생성
                   </button>
                 </div>
 
