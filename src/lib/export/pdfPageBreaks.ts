@@ -42,23 +42,17 @@ export function getNoSplitRanges(page: HTMLElement): Range[] {
   page.querySelectorAll<HTMLElement>('li').forEach(pushEl);
   page.querySelectorAll<HTMLElement>(`.${PDF_ATOMIC_CLASS}`).forEach(pushEl);
 
-  page.querySelectorAll('.doc-content').forEach((container) => {
-    const children = Array.from(container.children) as HTMLElement[];
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i];
-      const tag = el.tagName.toLowerCase();
-      if (tag === 'table' || tag === 'ul' || tag === 'ol') continue; // 이미 보호됨
-      const next = children[i + 1];
-      const r1 = el.getBoundingClientRect();
-      const top = r1.top - pageRect.top;
-      let bottom = r1.bottom - pageRect.top;
-      // 제목(p/h3) 바로 다음에 목록/표가 오면, 제목만 페이지 끝에 혼자 남지 않도록 묶어서 보호
-      if ((tag === 'p' || tag === 'h3') && next && ['ul', 'ol', 'table'].includes(next.tagName.toLowerCase())) {
-        const r2 = next.getBoundingClientRect();
-        bottom = r2.top - pageRect.top;
-      }
-      ranges.push({ top, bottom });
-    }
+  // 제목(p/h3) 바로 다음에 표/목록/분할금지블록이 오면, 제목만 페이지 끝에 혼자 남지 않도록
+  // 묶어서 보호. .doc-content 내부뿐 아니라 페이지 전체(예: PDM 표 제목)에 적용
+  page.querySelectorAll<HTMLElement>('h3, p').forEach((el) => {
+    const next = el.nextElementSibling as HTMLElement | null;
+    if (!next) return;
+    const tag = next.tagName.toLowerCase();
+    const isProtectedNext = tag === 'table' || tag === 'ul' || tag === 'ol' || next.classList.contains(PDF_ATOMIC_CLASS);
+    if (!isProtectedNext) return;
+    const r1 = el.getBoundingClientRect();
+    const r2 = next.getBoundingClientRect();
+    ranges.push({ top: r1.top - pageRect.top, bottom: r2.top - pageRect.top });
   });
 
   return ranges;

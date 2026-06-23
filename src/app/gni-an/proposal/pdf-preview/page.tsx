@@ -10,8 +10,9 @@ import { exportPagesToPdf } from '@/lib/export/pdfExport';
 import { exportToDocx } from '@/lib/export/docxExport';
 import { PDF_ATOMIC_CLASS, type PageOrientation } from '@/lib/export/pdfPageBreaks';
 
-/* ── 가로 방향으로 내보낼 섹션 — 문제분석/목표분석/모니터링평가계획/추진일정(표·다이어그램이 넓은 섹션) ── */
-const LANDSCAPE_SECTION_IDS = new Set(['basis-problem', 'basis-objective', 'monitoring-plan', 'monitoring-schedule']);
+/* ── 가로 방향으로 내보낼 섹션 — 표·다이어그램이 넓은 섹션 전체를 가로로 출력
+   (문제분석/목표분석은 다이어그램만 가로, 서술 텍스트는 별도 포트레이트 페이지로 분리하므로 제외) ── */
+const LANDSCAPE_SECTION_IDS = new Set(['plan-pdm', 'monitoring-plan', 'monitoring-schedule']);
 
 /** 모든 .doc-page 공통 래퍼 — 화면상 페이지 카드 구분(여백/그림자) 포함 */
 function DocPage({ children, style, landscape = false }: { children: ReactNode; style?: CSSProperties; landscape?: boolean }) {
@@ -530,25 +531,6 @@ export default function PDFPreviewPage() {
           })}
         </DocPage>
 
-        {/* ── 사업개요서 ── */}
-        {summary && (
-          <DocPage style={{ background: 'white', padding: '60px 60px' }}>
-            <h2 style={{ fontSize: '14pt', fontWeight: 700, borderBottom: '2px solid #111', paddingBottom: 6, marginBottom: 20 }}>사업 개요</h2>
-            <SummaryBlock label="사업명" value={summary.basicInfo?.title} />
-            <SummaryBlock label="사업 요약" value={summary.basicInfo?.summary} />
-            <SummaryBlock label="사업 배경" value={summary.background?.background} />
-            <SummaryBlock label="수요 분석" value={summary.background?.demandAnalysis} />
-            <SummaryBlock label="Impact" value={summary.objectives?.impact} />
-            <SummaryBlock label="사업목적" value={summary.objectives?.purpose} />
-            <SummaryBlock label="주요 성과" value={summary.objectives?.outcomes} />
-            <SummaryBlock label="직접 수혜자" value={summary.beneficiaries?.direct} />
-            <SummaryBlock label="간접 수혜자" value={summary.beneficiaries?.indirect} />
-            <SummaryBlock label="수행 방법" value={summary.implementation?.approach} />
-            <SummaryBlock label="파트너십 전략" value={summary.implementation?.partnershipStrategy} />
-            <SummaryBlock label="리스크 관리" value={summary.risks?.mainRisks} />
-            <SummaryBlock label="지속가능성" value={summary.risks?.sustainabilityPlan} />
-          </DocPage>
-        )}
 
         {/* ── 17개 섹션 ── */}
         {PROPOSAL_SECTIONS.map((section) => {
@@ -572,6 +554,13 @@ export default function PDFPreviewPage() {
           const showPartHeader = part.key !== lastPartKey;
           if (showPartHeader) lastPartKey = part.key;
 
+          const sectionTitleEl = (
+            <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
+              {section.code}. {section.title}
+            </h3>
+          );
+          const hasTree = (isProblemTree && hasProblemTree) || (isObjTree && hasObjTree);
+
           return (
             <div key={section.id}>
               {showPartHeader && (
@@ -579,71 +568,59 @@ export default function PDFPreviewPage() {
                   <p style={{ fontSize: '11pt', fontWeight: 700 }}>{part.title}</p>
                 </div>
               )}
-              <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape={LANDSCAPE_SECTION_IDS.has(section.id)}>
-                {/* 문제나무/목표나무가 있는 경우, 제목이 다이어그램과 분리되어 혼자 페이지에
-                    남지 않도록 제목을 다이어그램과 같은 분할 금지 블록 안에 넣음 */}
-                {!((isProblemTree && hasProblemTree) || (isObjTree && hasObjTree)) && (
-                  <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-                    {section.code}. {section.title}
-                  </h3>
-                )}
-                {isSchedule ? (
-                  <ScheduleGanttTable
-                    activities={scheduleActivities}
-                    startDate={project?.startDate || ''}
-                    endDate={project?.endDate || ''}
-                  />
-                ) : isPdm ? (
-                  <>
-                    <PDMTable pdm={structure!.pdm} />
-                    <PDMInputsBlock inputs={structure!.pdmInputs || []} />
-                  </>
-                ) : isProblemTree ? (
-                  <>
-                    {hasProblemTree && (
+              {isProblemTree || isObjTree ? (
+                <>
+                  {/* 다이어그램 페이지 — 가로 방향, 다이어그램이 있을 때만 */}
+                  {hasTree && (
+                    <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape>
                       <div className={PDF_ATOMIC_CLASS}>
-                        <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-                          {section.code}. {section.title}
-                        </h3>
-                        <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>문제나무 (Problem Tree)</p>
+                        {sectionTitleEl}
+                        <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>
+                          {isProblemTree ? '문제나무 (Problem Tree)' : '목표나무 (Objective Tree)'}
+                        </p>
                         <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
-                          <ProblemTreePdfView tree={structure!.problemTree!} />
+                          {isProblemTree
+                            ? <ProblemTreePdfView tree={structure!.problemTree!} />
+                            : <ObjectiveTreePdfView tree={structure!.objectiveTree!} />}
                         </div>
                       </div>
-                    )}
-                    {content && (
+                    </DocPage>
+                  )}
+                  {/* 서술 텍스트 페이지 — 세로 방향, 텍스트가 있을 때만 (빈 페이지 방지) */}
+                  {content && (
+                    <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape={false}>
+                      {!hasTree && sectionTitleEl}
                       <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
-                    )}
-                  </>
-                ) : isObjTree ? (
-                  <>
-                    {hasObjTree && (
-                      <div className={PDF_ATOMIC_CLASS}>
-                        <h3 style={{ fontSize: '13pt', fontWeight: 700, marginBottom: 16, paddingBottom: 6, borderBottom: '1px solid #ccc' }}>
-                          {section.code}. {section.title}
-                        </h3>
-                        <p style={{ fontSize: '8pt', color: '#888', marginBottom: 6, fontStyle: 'italic' }}>목표나무 (Objective Tree)</p>
-                        <div style={{ border: '1px solid #D9E6B7', borderRadius: 8, padding: '12px 8px', marginBottom: 16, background: '#fafbf6' }}>
-                          <ObjectiveTreePdfView tree={structure!.objectiveTree!} />
-                        </div>
-                      </div>
-                    )}
-                    {content && (
-                      <div className="doc-content" dangerouslySetInnerHTML={{ __html: content }} />
-                    )}
-                  </>
-                ) : (
-                  <div
-                    className="doc-content"
-                    dangerouslySetInnerHTML={{ __html: content }}
-                  />
-                )}
-              </DocPage>
+                    </DocPage>
+                  )}
+                </>
+              ) : (
+                <DocPage style={{ background: 'white', padding: '48px 60px' }} landscape={LANDSCAPE_SECTION_IDS.has(section.id)}>
+                  {sectionTitleEl}
+                  {isSchedule ? (
+                    <ScheduleGanttTable
+                      activities={scheduleActivities}
+                      startDate={project?.startDate || ''}
+                      endDate={project?.endDate || ''}
+                    />
+                  ) : isPdm ? (
+                    <>
+                      <PDMTable pdm={structure!.pdm} />
+                      <PDMInputsBlock inputs={structure!.pdmInputs || []} />
+                    </>
+                  ) : (
+                    <div
+                      className="doc-content"
+                      dangerouslySetInnerHTML={{ __html: content }}
+                    />
+                  )}
+                </DocPage>
+              )}
             </div>
           );
         })}
 
-        {filledSections.length === 0 && !summary && (
+        {filledSections.length === 0 && (
           <div style={{ background: 'white', padding: 80, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
             작성된 내용이 없습니다. 섹션을 작성하고 돌아오세요.
           </div>
@@ -667,16 +644,6 @@ export default function PDFPreviewPage() {
         .doc-content th { background: #f5f5f5; font-weight: 600; }
         .doc-content strong, .doc-content b { font-weight: 700; }
       `}</style>
-    </div>
-  );
-}
-
-function SummaryBlock({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: '9pt', fontWeight: 700, color: '#555', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
-      <p style={{ fontSize: '10pt', lineHeight: 1.8, color: '#222', whiteSpace: 'pre-line', paddingLeft: 8, borderLeft: '3px solid #8AA81E' }}>{value}</p>
     </div>
   );
 }

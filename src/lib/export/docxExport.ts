@@ -240,14 +240,6 @@ function groupMonthsByYear(months: string[]): { year: number; months: string[] }
   return groups;
 }
 
-function summaryBlock(label: string, value?: string): Paragraph[] {
-  if (!value) return [];
-  return [
-    new Paragraph({ spacing: { before: 120, after: 40 }, children: [new TextRun({ text: label, bold: true })] }),
-    new Paragraph({ spacing: { after: 80 }, text: value }),
-  ];
-}
-
 const PDM_LEVEL_LABEL: Record<string, string> = {
   impact: '영향 (Impact)',
   purpose: '사업목적 (Purpose)',
@@ -336,7 +328,7 @@ function buildPdmInputsParagraphs(inputs: PDMInput[]): Paragraph[] {
 }
 
 export async function exportToDocx(data: ExportData, filename: string) {
-  const { project, ideation, summary, structure, sections, scheduleActivities, projectDetails } = data;
+  const { project, ideation, structure, sections, scheduleActivities, projectDetails } = data;
 
   const today = new Date();
   const coverYear = project?.startDate ? new Date(project.startDate).getFullYear() : today.getFullYear();
@@ -378,26 +370,8 @@ export async function exportToDocx(data: ExportData, filename: string) {
   children.push(new Paragraph({ spacing: { before: 200 }, heading: HeadingLevel.HEADING_1, text: '2. 사업담당자 및 파트너기관 정보' }));
   children.push(buildTeamPartnerTable({ project, details: projectDetails }));
 
-  // 사업개요서
-  if (summary) {
-    children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, text: '사업 개요' }));
-    children.push(...summaryBlock('사업명', summary.basicInfo?.title));
-    children.push(...summaryBlock('사업 요약', summary.basicInfo?.summary));
-    children.push(...summaryBlock('사업 배경', summary.background?.background));
-    children.push(...summaryBlock('수요 분석', summary.background?.demandAnalysis));
-    children.push(...summaryBlock('Impact', summary.objectives?.impact));
-    children.push(...summaryBlock('사업목적', summary.objectives?.purpose));
-    children.push(...summaryBlock('주요 성과', summary.objectives?.outcomes));
-    children.push(...summaryBlock('직접 수혜자', summary.beneficiaries?.direct));
-    children.push(...summaryBlock('간접 수혜자', summary.beneficiaries?.indirect));
-    children.push(...summaryBlock('수행 방법', summary.implementation?.approach));
-    children.push(...summaryBlock('파트너십 전략', summary.implementation?.partnershipStrategy));
-    children.push(...summaryBlock('리스크 관리', summary.risks?.mainRisks));
-    children.push(...summaryBlock('지속가능성', summary.risks?.sustainabilityPlan));
-  }
-
-  // 가로 방향이 필요한 섹션 — 문제분석/목표분석/PDM/모니터링평가계획/추진일정(표·다이어그램이 넓은 섹션)
-  const LANDSCAPE_SECTION_IDS = new Set(['basis-problem', 'basis-objective', 'plan-pdm', 'monitoring-plan', 'monitoring-schedule']);
+  // 가로 방향이 필요한 섹션 — PDM/모니터링평가계획/추진일정(표가 넓은 섹션)
+  const LANDSCAPE_SECTION_IDS = new Set(['plan-pdm', 'monitoring-plan', 'monitoring-schedule']);
   const hasPdm = !!(structure?.pdm && structure.pdm.length > 0);
 
   type Block = { landscape: boolean; code: string; title: string; isSchedule: boolean; isPdm: boolean; content?: string };

@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Sparkles, FolderOpen, Users, CheckCircle, Download, ArrowRight, X, Lightbulb, MessageSquare, Network, FileEdit } from 'lucide-react';
+import { Sparkles, FolderOpen, Users, CheckCircle, Download, ArrowRight, X, Lightbulb, MessageSquare, Network, FileEdit, Trash2 } from 'lucide-react';
+import { useProjectStore } from '@/lib/store/projectStore';
 
 const STEPS = [
   { icon: <Lightbulb size={16} />, title: '아이디어 입력', desc: '사업 분야, 지역, 핵심 아이디어를 입력합니다.' },
@@ -10,7 +12,36 @@ const STEPS = [
   { icon: <FileEdit size={16} />, title: '제안서 작성 & 내보내기', desc: '17개 섹션을 작성하고 PDF/Word로 바로 내보냅니다.' },
 ];
 
+function getResumePath(opts: {
+  hasStructure: boolean;
+  hasIdeation: boolean;
+}): string {
+  if (opts.hasStructure) return '/gni-an/proposal/basis-background';
+  if (opts.hasIdeation) return '/gni-an/ideation/structure';
+  return '/gni-an/ideation';
+}
+
 function RecentProjectsModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const { project, ideation, structure, sections, getCompletedSectionsCount, reset } = useProjectStore();
+  const hasProject = !!project;
+  const completed = getCompletedSectionsCount();
+  const totalSections = Object.keys(sections).length || 17;
+  const resumePath = getResumePath({
+    hasStructure: !!structure?.problemTree?.coreProblem,
+    hasIdeation: !!ideation,
+  });
+
+  function handleResume() {
+    onClose();
+    router.push(resumePath);
+  }
+
+  function handleDelete() {
+    if (!confirm('저장된 프로젝트를 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return;
+    reset();
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
@@ -20,21 +51,65 @@ function RecentProjectsModal({ onClose }: { onClose: () => void }) {
             <X size={20} />
           </button>
         </div>
-        <div className="p-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <FolderOpen size={20} className="text-gray-400" />
+
+        {!hasProject ? (
+          <div className="p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+              <FolderOpen size={20} className="text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-sm">저장된 프로젝트가 없습니다.</p>
+            <p className="text-gray-400 text-xs mt-1">새 프로젝트를 시작해보세요.</p>
           </div>
-          <p className="text-gray-500 text-sm">저장된 프로젝트가 없습니다.</p>
-          <p className="text-gray-400 text-xs mt-1">새 프로젝트를 시작해보세요.</p>
-        </div>
+        ) : (
+          <div className="p-5">
+            <p className="text-xs text-gray-400 mb-2">이 컴퓨터에 저장된 작업 내용입니다.</p>
+            <div className="border border-[#D9E6B7] bg-[#F7F8F2] rounded-xl p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[#111827] truncate">{project!.title || '제목 없는 프로젝트'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {[project!.country, project!.field].filter(Boolean).join(' · ') || '국가·분야 미지정'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleDelete}
+                  title="삭제"
+                  className="text-gray-300 hover:text-red-400 flex-shrink-0 p-1"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-xs text-gray-500">작성 진행률</span>
+                <span className="text-xs font-bold text-[#8AA81E]">{completed}/{totalSections}</span>
+              </div>
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-1.5">
+                <div
+                  className="h-full bg-[#8AA81E] rounded-full"
+                  style={{ width: `${totalSections ? Math.round((completed / totalSections) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-4 border-t border-gray-100">
-          <Link
-            href="/gni-an/project/new"
-            onClick={onClose}
-            className="block w-full bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg py-2.5 text-sm font-medium text-center transition-colors"
-          >
-            새 프로젝트 시작하기
-          </Link>
+          {hasProject ? (
+            <button
+              onClick={handleResume}
+              className="block w-full bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg py-2.5 text-sm font-medium text-center transition-colors"
+            >
+              이어서 작업하기
+            </button>
+          ) : (
+            <Link
+              href="/gni-an/project/new"
+              onClick={onClose}
+              className="block w-full bg-[#8AA81E] hover:bg-[#799516] text-white rounded-lg py-2.5 text-sm font-medium text-center transition-colors"
+            >
+              새 프로젝트 시작하기
+            </Link>
+          )}
         </div>
       </div>
     </div>
