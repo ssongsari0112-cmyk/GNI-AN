@@ -8,8 +8,9 @@ import type { ClarifyMessage } from '@/types';
 import { Send, MessageCircleQuestion, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 
-const NONE_LABEL = '없습니다';
+const NONE_LABEL = '아직 몰라요';
 const ALL_LABEL = '전체 선택합니다';
+const ETC_LABEL = '기타(직접 작성)';
 
 export default function ClarifyPage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function ClarifyPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const startedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,6 +113,22 @@ export default function ClarifyPage() {
   const showFinalActions = !loading && lastMsg?.role === 'assistant' && lastMsg.isFinal && !clarifyConfirmed;
   const showOptions = !loading && lastMsg?.role === 'assistant' && !lastMsg.isFinal && (lastMsg.options?.length ?? 0) > 0;
 
+  // 선택지 버튼을 누른 뒤에도(입력창에 포커스가 없어도) 엔터로 바로 전송되도록 전역으로 처리
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      if (loading || showFinalActions) return;
+      e.preventDefault();
+      handleSend();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [loading, showFinalActions, selected, input, clarifyMessages]);
+
+  function handleEtcClick() {
+    inputRef.current?.focus();
+  }
+
   if (!ideation) {
     return (
       <div className="min-h-screen bg-[#F7F8F2]">
@@ -185,13 +203,17 @@ export default function ClarifyPage() {
 
           {showOptions && (
             <div className="px-4 pb-2 flex flex-wrap gap-2">
-              {[...(lastMsg!.options || []), NONE_LABEL, ALL_LABEL].map((opt) => (
+              {[...(lastMsg!.options || []), NONE_LABEL, ALL_LABEL, ETC_LABEL].map((opt) => (
                 <button
                   key={opt}
-                  onClick={() => opt === ALL_LABEL ? selectAll(lastMsg!.options || []) : toggleOption(opt)}
+                  onClick={() => {
+                    if (opt === ALL_LABEL) selectAll(lastMsg!.options || []);
+                    else if (opt === ETC_LABEL) handleEtcClick();
+                    else toggleOption(opt);
+                  }}
                   className={clsx(
                     'text-xs rounded-full px-3 py-1.5 border transition-colors',
-                    selected.includes(opt)
+                    opt !== ETC_LABEL && selected.includes(opt)
                       ? 'bg-[#8AA81E] text-white border-[#8AA81E]'
                       : 'bg-white text-gray-600 border-gray-200 hover:border-[#8AA81E] hover:text-[#8AA81E]'
                   )}
@@ -206,11 +228,11 @@ export default function ClarifyPage() {
             <div className="px-4 pb-4 pt-2 border-t border-gray-100">
               <div className="flex gap-2">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="직접 입력하거나 위 선택지를 골라주세요..."
+                  placeholder="자유롭게 직접 입력하거나 위 선택지를 골라주세요... (엔터로 전송)"
                   disabled={loading}
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8AA81E] disabled:bg-gray-50 disabled:text-gray-400"
                 />
