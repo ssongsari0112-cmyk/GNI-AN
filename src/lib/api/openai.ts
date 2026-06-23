@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 let client: OpenAI | null = null;
 
 const MODEL_FAST = 'gpt-4o-mini';
-const MODEL_PRO  = 'gpt-4o';
+const MODEL_PRO  = 'gpt-5.3-chat-latest';
 
 export function isOpenAIConfigured(): boolean {
   const key = process.env.OPENAI_API_KEY;
@@ -41,11 +41,12 @@ export async function generateText(messages: Msg[], systemPrompt: string): Promi
 
 export async function generateTextPro(messages: Msg[], systemPrompt: string): Promise<string> {
   const openai = getClient();
+  // gpt-5.x 계열은 max_tokens 대신 max_completion_tokens를 쓰고, temperature는
+  // 기본값(1)만 지원함 (커스텀 값 전달 시 400 에러)
   const response = await openai.chat.completions.create({
     model: MODEL_PRO,
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
-    max_tokens: 8192,
-    temperature: 0.65,
+    max_completion_tokens: 8192,
   });
   return response.choices[0]?.message?.content ?? '';
 }
@@ -80,8 +81,7 @@ export async function streamTextPro(
   const stream = await openai.chat.completions.create({
     model: MODEL_PRO,
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
-    max_tokens: 4096,
-    temperature: 0.65,
+    max_completion_tokens: 4096,
     stream: true,
   });
 
