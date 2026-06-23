@@ -94,7 +94,7 @@ function NodeBox({
             {onDelete && <button onClick={onDelete} className="w-5 h-5 rounded-full bg-red-400 text-white text-[9px] shadow flex items-center justify-center">✕</button>}
           </div>
           {(onAddSibling || onAddChild) && (
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 translate-y-full hidden group-hover:flex flex-col gap-1 z-20 whitespace-nowrap">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 pt-1.5 hidden group-hover:flex flex-col gap-1 z-20 whitespace-nowrap">
               {onAddSibling && <button onClick={onAddSibling} className="text-[10px] bg-white border rounded px-2.5 py-1 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+추가</button>}
               {onAddChild && <button onClick={onAddChild} className="text-[10px] bg-white border rounded px-2.5 py-1 text-gray-400 hover:text-[#5a7012] hover:border-[#8AA81E] shadow-sm">+{childLabel}</button>}
             </div>
