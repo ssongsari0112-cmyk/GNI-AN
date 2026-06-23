@@ -3,9 +3,10 @@ import { useState, useRef, useCallback } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
-/** "(지방농업청, 2023)", "(World Bank, 2022)", "(FAO 농업 인식 조사, 2022)" 같은
- *  출처 표기 패턴을 찾아 클릭 가능한 칩으로 감싼다. */
-const CITATION_REGEX = /\(([^()]{2,80}?,\s*\d{4}[^()]{0,30})\)/g;
+/** "(지방농업청, 2023)", "(World Bank, 2022)", "(FAO 농업 인식 조사, 2022)", 쉼표·공백
+ *  없이 붙어 쓴 "(UN2024)" 같은 변형 표기까지 폭넓게 찾아 클릭 가능한 칩으로 감싼다.
+ *  기관명(글자로 시작)과 4자리 연도(19xx/20xx)가 함께 있으면 출처로 간주. */
+const CITATION_REGEX = /\(([\p{L}][^()]{1,75}?(?:19|20)\d{2}[^()]{0,20})\)/gu;
 
 function wrapCitations(html: string): string {
   return html.replace(CITATION_REGEX, (_match, inner: string) => {
