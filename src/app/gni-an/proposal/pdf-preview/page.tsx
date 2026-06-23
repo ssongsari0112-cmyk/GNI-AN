@@ -640,7 +640,7 @@ export default function PDFPreviewPage() {
         .doc-content ul, .doc-content ol { padding-left: 20px; margin: 4px 0; }
         .doc-content li { margin: 2px 0; }
         .doc-content table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 8px 0; }
-        .doc-content th, .doc-content td { border: 1px solid #aaa; padding: 5px 8px; }
+        .doc-content th, .doc-content td { border: 1px solid #aaa; padding: 5px 8px; vertical-align: middle; }
         .doc-content th { background: #f5f5f5; font-weight: 600; }
         .doc-content strong, .doc-content b { font-weight: 700; }
       `}</style>

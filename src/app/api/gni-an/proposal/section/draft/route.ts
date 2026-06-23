@@ -46,7 +46,7 @@ const SYSTEM_PROMPT = `당신은 KOICA 시민사회협력사업 제안서 심사
    ✅ "현지 행정 역량 부족이라는 근본원인을 보완하기 위해, 현지 파트너기관의 행정 인력 배치 역할을 수행함"
 
 [HTML 형식 규칙]
-- 허용 태그: <p> <strong> <em> <h3> <ul> <li> <table> <thead> <tbody> <tr> <th> <td>
+- 허용 태그: <p> <strong> <em> <h3> <ul> <li> <table> <colgroup> <col> <thead> <tbody> <tr> <th> <td>
 - 금지: html/body/head 등 문서 태그, 마크다운 코드블록(≡ 백틱), 불필요한 개행
 - 출력은 HTML 코드만. 서두·결론 문장 없이 첫 태그부터 시작`;
 
@@ -206,6 +206,9 @@ ${formatContext(ctx)}
 [표 구조 — 반드시 엄수]
 컬럼: 번호 | 이해관계자 | 위치(+/0/-) | 위치 설정 이유 | 강점 및 약점 | 위치변화전략
 행 수: 최소 8개, 최대 12개
+표 맨 위에 반드시 아래 colgroup을 그대로 삽입하여 컬럼 너비를 지정하세요 (내용이 가장 많은
+"강점 및 약점"은 넓게, 기호 하나만 들어가는 "위치"는 좁게):
+<colgroup><col style="width:5%"><col style="width:14%"><col style="width:7%"><col style="width:22%"><col style="width:30%"><col style="width:22%"></colgroup>
 
 [이해관계자 구성 — 프로젝트 분야(${ctx.field || '해당 분야'})에 맞게 구체화]
 아래 유형을 반드시 포함:
