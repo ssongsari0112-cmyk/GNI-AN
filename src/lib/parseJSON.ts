@@ -25,6 +25,38 @@ export function sanitizeDeep<T>(value: T): T {
 }
 
 /**
+ * 텍스트에서 첫 "{" 또는 "["로 시작하는 JSON 값을 괄호 깊이를 추적해 추출.
+ * 문자열 리터럴 안의 괄호는 무시하고, 정확히 짝이 맞는 닫는 괄호까지만 잘라낸다.
+ * (예: AI가 JSON 뒤에 "참고: [...] 추가 설명"처럼 괄호가 포함된 사족을 덧붙여도,
+ * 단순 greedy 정규식과 달리 그 사족까지 통째로 삼키지 않음)
+ */
+function extractBalancedJson(text: string): string | null {
+  const startIdx = text.search(/[{[]/);
+  if (startIdx === -1) return null;
+
+  const closingStack: string[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === '\\') escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{' || ch === '[') closingStack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') {
+      closingStack.pop();
+      if (closingStack.length === 0) return text.slice(startIdx, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
  * AI 응답에서 JSON을 안전하게 추출하고 파싱합니다.
  * - 마크다운 코드블록 제거
  * - 문자열 값 내부의 리터럴 줄바꿈만 이스케이프 (구조적 공백은 유지)
@@ -37,11 +69,10 @@ export function parseAIJson(text: string): unknown {
     .replace(/```\s*$/im, '')
     .trim();
 
-  // 2. JSON 객체 또는 배열 추출
-  const objMatch = cleaned.match(/\{[\s\S]*\}/);
-  const arrMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (objMatch) cleaned = objMatch[0];
-  else if (arrMatch) cleaned = arrMatch[0];
+  // 2. JSON 객체 또는 배열 추출 (괄호 깊이 추적 — AI가 JSON 뒤에 덧붙이는 사족에
+  //    포함된 괄호 때문에 너무 많이 잘라내는 것을 방지)
+  const extracted = extractBalancedJson(cleaned);
+  if (extracted) cleaned = extracted;
 
   // 3. 문자열 값 내부의 리터럴 제어문자만 이스케이프
   //    (JSON 구조적 공백인 바깥의 \n은 건드리지 않음)
