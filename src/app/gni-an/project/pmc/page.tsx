@@ -104,10 +104,7 @@ export default function PmcUploadPage() {
 
   // ── Proceed to ideation ──────────────────────────────────────
   const handleProceed = () => {
-    if (!reset()) {
-      alert('저장 가능한 프로젝트가 이미 5개입니다. 홈 화면에서 기존 프로젝트를 1개 이상 삭제한 뒤 다시 시도해주세요.');
-      return;
-    }
+    reset();
     setProjectType('pmc');
     const doneDocs = docs.filter(d => d.status === 'done' && d.doc).map(d => d.doc!);
     setPmcSourceDocs(doneDocs);
@@ -319,10 +316,7 @@ export default function PmcUploadPage() {
             {docs.length === 0 && (
               <button
                 onClick={() => {
-                  if (!reset()) {
-                    alert('저장 가능한 프로젝트가 이미 5개입니다. 홈 화면에서 기존 프로젝트를 1개 이상 삭제한 뒤 다시 시도해주세요.');
-                    return;
-                  }
+                  reset();
                   setProjectType('pmc');
                   router.push('/gni-an/ideation');
                 }}

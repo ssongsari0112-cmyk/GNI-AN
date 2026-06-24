@@ -65,10 +65,7 @@ export default function CivilSocietyPage() {
   const { setProject, reset } = useProjectStore();
 
   function handleSelect() {
-    if (!reset()) {
-      alert('저장 가능한 프로젝트가 이미 5개입니다. 홈 화면에서 기존 프로젝트를 1개 이상 삭제한 뒤 다시 시도해주세요.');
-      return;
-    }
+    reset();
     const newProject: Project = {
       id: crypto.randomUUID(),
       program: 'civil-society-cooperation-entry',
