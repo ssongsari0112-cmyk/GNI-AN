@@ -11,6 +11,51 @@ import { ArrowRight, RefreshCw, Lightbulb, AlertTriangle, X, Plus, Pencil, Check
 import { clsx } from 'clsx';
 
 type Tab = 'problem' | 'objective' | 'pdm';
+type BuildStep = 'idle' | 'problem' | 'objective' | 'pdm' | 'done';
+
+const BUILD_STEP_ORDER: BuildStep[] = ['problem', 'objective', 'pdm', 'done'];
+
+/** 구조 생성이 "문제분석 → 목표체계 → PDM" 순서로 쌓이는 과정을 그대로 보여주는 진행 표시.
+ *  startAt을 지정하면 그 이전 단계는 "이미 있음"으로 건너뛰어 표시(예: 문제분석 재생성 없이
+ *  목표체계부터 다시 만들 때) */
+function BuildStepList({ current, startAt = 'problem' }: { current: BuildStep; startAt?: BuildStep }) {
+  const allSteps: { key: BuildStep; label: string }[] = [
+    { key: 'problem', label: '문제분석 생성' },
+    { key: 'objective', label: '목표체계 생성 — 문제분석을 그대로 이어받음' },
+    { key: 'pdm', label: 'PDM 생성 — 목표체계 구조를 그대로 이어받음' },
+  ];
+  const startIdx = BUILD_STEP_ORDER.indexOf(startAt);
+  const steps = allSteps.filter((s) => BUILD_STEP_ORDER.indexOf(s.key) >= startIdx);
+  const currentIdx = BUILD_STEP_ORDER.indexOf(current);
+
+  return (
+    <div className="space-y-2.5 text-left max-w-sm mx-auto mb-4">
+      {steps.map((step) => {
+        const stepIdx = BUILD_STEP_ORDER.indexOf(step.key);
+        const isDone = currentIdx > stepIdx;
+        const isCurrent = currentIdx === stepIdx;
+        return (
+          <div
+            key={step.key}
+            className={clsx(
+              'flex items-center gap-2 text-sm transition-colors',
+              isDone ? 'text-[#8AA81E]' : isCurrent ? 'text-[#111827] font-medium' : 'text-gray-300'
+            )}
+          >
+            {isDone ? (
+              <Check size={14} className="text-[#8AA81E] flex-shrink-0" />
+            ) : isCurrent ? (
+              <RefreshCw size={14} className="animate-spin flex-shrink-0" />
+            ) : (
+              <span className="w-3.5 h-3.5 rounded-full border border-gray-300 inline-block flex-shrink-0" />
+            )}
+            {step.label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ── 인사이트 모달 ──────────────────────────────── */
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -732,6 +777,19 @@ export default function StructurePage() {
   const [activeTab, setActiveTab] = useState<Tab>('problem');
   const [showInsights, setShowInsights] = useState(false);
   const [error, setError] = useState('');
+  const [buildStep, setBuildStep] = useState<BuildStep>('idle');
+
+  /** 전문가 상담 + 사업 구체화 대화 내용을 하나의 텍스트로 합쳐, 문제나무·목표나무
+   *  생성 라우트의 expertInsights 필드로 전달 */
+  function buildExpertInsightsText(): string {
+    const consulting = expertSessions
+      .map((s) => `[${s.expertId} 전문가] ${s.messages.slice(-2).map((m) => m.content).join(' / ')}`)
+      .join('\n');
+    const clarify = clarifyMessages
+      .map((m) => `${m.role === 'assistant' ? 'AI 질문' : '사용자 답변'}: ${m.content}`)
+      .join('\n');
+    return [consulting, clarify].filter(Boolean).join('\n\n');
+  }
 
   const generated = !!structure;
 
@@ -750,20 +808,81 @@ export default function StructurePage() {
     }
   }, []);
 
+  /** 문제분석 → 목표체계 → PDM을 순서대로 하나씩 생성하며, 단계가 끝날 때마다 바로
+   *  화면에 쌓아 보여줌(완성된 결과를 한 번에 받는 게 아니라 쌓이는 과정이 보이도록) */
   async function handleGenerate() {
     setLoading(true);
     setError('');
+    setBuildStep('problem');
     try {
-      const sessions = expertSessions.map((s) => ({ expertId: s.expertId, summary: s.messages.slice(-2).map((m) => m.content).join('\n') }));
-      const res = await fetch('/api/gni-an/structure/generate', {
+      const expertInsights = buildExpertInsightsText();
+      const country = ideation?.country || project?.country;
+      const field = ideation?.field || project?.field;
+
+      // 1) 문제분석
+      const ptRes = await fetch('/api/gni-an/proposal/problem-tree', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideation, analysis: ideationAnalysis, expertSessions: sessions, projectType, pmcSourceDocs, clarifyMessages }),
+        body: JSON.stringify({
+          title: project?.title, country, field, idea: ideation?.idea,
+          targetBeneficiaries: ideationAnalysis?.targetBeneficiaries,
+          expertInsights, projectType, pmcSourceDocs,
+        }),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setStructure({ problemTree: data.data.problemTree, objectiveTree: data.data.objectiveTree, pdm: data.data.pdm, pdmInputs: data.data.pdmInputs || [] });
-      if (data.data.insights?.length) setInsights(data.data.insights);
+      const ptData = await ptRes.json();
+      if (!ptData.success) throw new Error(ptData.error || '문제분석 생성에 실패했습니다.');
+      setActiveTab('problem');
+      setStructure({
+        problemTree: ptData.tree,
+        objectiveTree: { impact: '', purpose: '', outcomes: [], outputs: [], activities: [] },
+        pdm: [], pdmInputs: [],
+      });
+
+      // 2) 목표체계 — 문제분석을 그대로 이어받음
+      setBuildStep('objective');
+      const problemTreeJson = JSON.stringify(ptData.tree);
+      const otRes = await fetch('/api/gni-an/proposal/objective-tree', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: project?.title, country, field, idea: ideation?.idea,
+          coreProblem: ptData.tree.coreProblem, problemTree: problemTreeJson,
+          expertInsights, projectType, pmcSourceDocs,
+        }),
+      });
+      const otData = await otRes.json();
+      if (!otData.success) throw new Error(otData.error || '목표체계 생성에 실패했습니다.');
+      setActiveTab('objective');
+      setStructure({
+        problemTree: ptData.tree, objectiveTree: otData.tree,
+        pdm: [], pdmInputs: [],
+      });
+
+      // 3) PDM — 목표체계 구조를 그대로 이어받음
+      setBuildStep('pdm');
+      const pdmRes = await fetch('/api/gni-an/proposal/pdm-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectContext: {
+            title: project?.title, country, field,
+            coreProblem: ptData.tree.coreProblem,
+            targetBeneficiaries: ideationAnalysis?.targetBeneficiaries,
+            interventionApproach: ideationAnalysis?.interventionApproach,
+            expectedOutcomes: ideationAnalysis?.expectedOutcomes,
+            problemTree: problemTreeJson, objectiveTree: JSON.stringify(otData.tree),
+          },
+          projectType, pmcSourceDocs,
+        }),
+      });
+      const pdmData = await pdmRes.json();
+      if (!pdmData.success) throw new Error(pdmData.error || 'PDM 생성에 실패했습니다.');
+      setActiveTab('pdm');
+      setStructure({
+        problemTree: ptData.tree, objectiveTree: otData.tree,
+        pdm: pdmData.pdm, pdmInputs: pdmData.inputs || [],
+      });
+      setBuildStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : '구조 생성 중 오류가 발생했습니다.');
     } finally {
@@ -771,57 +890,56 @@ export default function StructurePage() {
     }
   }
 
-  /** 문제분석은 그대로 두고, 현재(수정된) 문제분석을 기반으로 목표체계·PDM만 다시 생성 */
+  /** 문제분석은 그대로 두고, 현재(수정된) 문제분석을 기반으로 목표체계·PDM만 순서대로 다시 생성 */
   async function handleRegenerateFromProblem() {
     if (!structure?.problemTree) return;
     setLoading(true);
     setError('');
+    setBuildStep('objective');
     try {
+      const expertInsights = buildExpertInsightsText();
+      const country = ideation?.country || project?.country;
+      const field = ideation?.field || project?.field;
       const problemTreeJson = JSON.stringify(structure.problemTree);
 
       const objRes = await fetch('/api/gni-an/proposal/objective-tree', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: project?.title,
-          country: ideation?.country || project?.country,
-          field: ideation?.field || project?.field,
-          idea: ideation?.idea,
-          coreProblem: structure.problemTree.coreProblem,
-          problemTree: problemTreeJson,
-          projectType,
-          pmcSourceDocs,
+          title: project?.title, country, field, idea: ideation?.idea,
+          coreProblem: structure.problemTree.coreProblem, problemTree: problemTreeJson,
+          expertInsights, projectType, pmcSourceDocs,
         }),
       });
       const objData = await objRes.json();
       if (!objData.success) throw new Error(objData.error || '목표체계 생성에 실패했습니다.');
+      setActiveTab('objective');
+      setStructure({ ...structure, objectiveTree: objData.tree, pdm: [], pdmInputs: [] });
 
+      setBuildStep('pdm');
       const pdmRes = await fetch('/api/gni-an/proposal/pdm-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectContext: {
-            title: project?.title,
-            country: ideation?.country || project?.country,
-            field: ideation?.field || project?.field,
+            title: project?.title, country, field,
             coreProblem: structure.problemTree.coreProblem,
             problemTree: problemTreeJson,
             objectiveTree: JSON.stringify(objData.tree),
           },
-          projectType,
-          pmcSourceDocs,
+          projectType, pmcSourceDocs,
         }),
       });
       const pdmData = await pdmRes.json();
       if (!pdmData.success) throw new Error(pdmData.error || 'PDM 생성에 실패했습니다.');
-
+      setActiveTab('pdm');
       setStructure({
         ...structure,
         objectiveTree: objData.tree,
         pdm: pdmData.pdm,
         pdmInputs: pdmData.inputs || [],
       });
-      setActiveTab('objective');
+      setBuildStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : '재생성 중 오류가 발생했습니다.');
     } finally {
@@ -862,8 +980,9 @@ export default function StructurePage() {
                   <Lightbulb size={28} className="text-[#8AA81E]" />
                 </div>
                 <h2 className="text-lg font-semibold text-[#111827] mb-2">AI로 사업 구조 생성하기</h2>
-                <p className="text-gray-400 text-sm mb-4">전문가 상담 결과와 아이디어 분석을 바탕으로<br />문제분석, 목표체계, PDM 초안을 자동 생성합니다.</p>
-                {loading && <div className="flex items-center justify-center gap-2 text-sm text-orange-500 mb-3"><AlertTriangle size={14} />생성 중 다른 화면으로 이동하면 작업이 중단됩니다.</div>}
+                <p className="text-gray-400 text-sm mb-4">전문가 상담 결과와 아이디어 분석을 바탕으로<br />문제분석 → 목표체계 → PDM을 순서대로 쌓아 자동 생성합니다.</p>
+                {loading && <BuildStepList current={buildStep} />}
+                {loading && <div className="flex items-center justify-center gap-2 text-xs text-orange-500 mb-3"><AlertTriangle size={12} />생성 중 다른 화면으로 이동하면 작업이 중단됩니다.</div>}
                 {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
                 <Button onClick={handleGenerate} loading={loading} size="lg">
                   {loading ? '구조 생성 중...' : 'AI로 사업 구조 생성하기'}
@@ -882,7 +1001,10 @@ export default function StructurePage() {
 
                 {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
                 {loading && (
-                  <p className="text-xs text-orange-500 mb-2 flex items-center gap-1.5"><AlertTriangle size={12} />생성 중입니다. 잠시만 기다려주세요…</p>
+                  <div className="bg-white border border-[#D9E6B7] rounded-xl p-4 mb-3">
+                    <BuildStepList current={buildStep} startAt="objective" />
+                    <p className="text-xs text-orange-500 flex items-center gap-1.5"><AlertTriangle size={12} />생성 중 다른 화면으로 이동하면 작업이 중단됩니다.</p>
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between mb-3">
