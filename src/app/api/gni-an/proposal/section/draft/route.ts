@@ -22,6 +22,9 @@ const SYSTEM_PROMPT = `당신은 KOICA 시민사회협력사업 제안서 심사
      URL을 확인한 경우에만 아래 형식의 실제 하이퍼링크로 인용:
      (<a href="검색으로 확인한 실제 URL" target="_blank" rel="noopener noreferrer">연도, 보고서/통계명, 기관명</a>)
      예: (<a href="https://www.unicef.org/reports/xxx" target="_blank" rel="noopener noreferrer">2023, State of the World's Children, UNICEF</a>)
+   - 링크는 클릭하면 그 내용을 바로 확인할 수 있는 구체적인 페이지여야 함 — 기관의 메인 홈페이지나
+     검색결과 목록 페이지를 절대 쓰지 말 것. 검색 결과에 실제 보고서 PDF나 특정 기사/통계 페이지의
+     URL이 있으면 그 구체적 URL을 그대로 쓸 것(예: 보고서 PDF 직접 링크, 특정 기사 페이지 등)
    - 검색해도 신뢰할 만한 실제 자료를 찾지 못했으면 URL이나 보고서명을 절대 지어내지 말 것 —
      이 경우 ① 출처 표기 없이 일반적 서술로 작성하거나 ② "현지 조사 결과" 등 사업 자체 조사로
      명시하는 방식만 사용. 존재하지 않는 URL·보고서·통계·연도를 만들어내는 것은 절대 금지.
