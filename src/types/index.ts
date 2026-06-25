@@ -52,6 +52,10 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  /** 전문가 컨설팅 등 질문형 대화에서 assistant 메시지에 딸려오는 빠른 선택지 */
+  options?: string[];
+  /** true면 "이 전문가와의 상담을 충분히 진행했다"는 마무리 확인 메시지 */
+  isFinal?: boolean;
 }
 
 export interface ExpertSession {

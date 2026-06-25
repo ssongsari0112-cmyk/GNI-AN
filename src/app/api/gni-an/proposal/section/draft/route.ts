@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateTextProSearch, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcSourceText } from '@/lib/pmcContext';
 
 /* ─────────────────────────────────────────────
@@ -17,17 +17,16 @@ const SYSTEM_PROMPT = `당신은 KOICA 시민사회협력사업 제안서 심사
 
 [작성 품질 절대 기준]
 1. 수치 필수: "높다/낮다/부족하다" 같은 막연한 표현 금지. 반드시 %·건수·금액 등 정량 지표 포함
-2. 출처 표기 — 환각 절대 금지, 어떤 문서인지 정확히 알 수 있게 작성:
-   - 형식은 항상 "(기관명, 연도)"로 — 쉼표와 공백을 반드시 포함 (❌ "(UN2024)" ❌ "(UN 2024)" 모두 금지,
-     ✅ "(UN, 2024)"만 사용). 절대 붙여 쓰지 말 것
-   - 가능하면 출처를 문장 안에서 먼저 구체적으로 밝힐 것: 어떤 기관의 "어떤 보고서/통계"인지
-     명시 (예: "유엔개발계획(UNDP) 인간개발보고서(2023)에 따르면" — 기관명만 막연히 쓰지 말고
-     실제로 알고 있는 잘 알려진 보고서명이 있으면 함께 쓸 것). 보고서명을 정확히 모르면 보고서명을
-     지어내지 말고 기관명만 쓸 것
-   - 세계은행·UNICEF·WHO·FAO·UNDP·OECD 등 국제기관 데이터를 인용할 때, 실제로 해당 기관이 그런
-     통계를 발표했는지 확신할 수 없으면 절대 출처를 지어내지 말 것. 구체적 출처가 불확실한 경우
-     ① 출처 표기 없이 일반적 서술로 작성하거나 ② "현지 조사 결과" 등 사업 자체 조사로 명시하는
-     방식만 사용. 존재하지 않는 보고서·통계·연도를 만들어내는 것은 절대 금지.
+2. 출처 표기 — 환각 절대 금지, 웹 검색 도구로 실제 찾은 자료만 인용:
+   - 통계·사례를 인용할 때는 반드시 먼저 웹 검색 도구로 실제 자료를 찾을 것. 검색 결과로 실제
+     URL을 확인한 경우에만 아래 형식의 실제 하이퍼링크로 인용:
+     (<a href="검색으로 확인한 실제 URL" target="_blank" rel="noopener noreferrer">연도, 보고서/통계명, 기관명</a>)
+     예: (<a href="https://www.unicef.org/reports/xxx" target="_blank" rel="noopener noreferrer">2023, State of the World's Children, UNICEF</a>)
+   - 검색해도 신뢰할 만한 실제 자료를 찾지 못했으면 URL이나 보고서명을 절대 지어내지 말 것 —
+     이 경우 ① 출처 표기 없이 일반적 서술로 작성하거나 ② "현지 조사 결과" 등 사업 자체 조사로
+     명시하는 방식만 사용. 존재하지 않는 URL·보고서·통계·연도를 만들어내는 것은 절대 금지.
+   - 같은 출처를 "[도메인](URL)" 같은 마크다운 형식으로 중복해서 다시 표시하지 말 것 — 위 <a>
+     형식 한 번만 사용
 3. SDGs 명시: 관련 목표 번호 및 세부 Target 번호 (예: SDG 6.1, SDG 2.2.1)
 4. KOICA CPS 연계: 해당 국가 중점협력분야 구체 명시
 5. 젠더·포용: 여성·아동·장애인 취약성 수치 포함
@@ -129,7 +128,7 @@ ${formatContext(ctx)}
 - 문단 사이에 필요한 경우 통계 표를 <table>로 삽입 가능
 - 괄호로 묶인 소제목은 반드시 <strong>으로 볼드 처리
 - 추상어 금지: "높다/낮다/부족하다" 대신 반드시 실제 수치·출처 사용
-- 출처 표기: (기관명, 연도) 형식으로 문장 말미에 삽입
+- 출처 표기: 시스템 프롬프트의 [출처 표기] 규칙대로 문장 말미에 삽입
 
 HTML만 출력:`,
 
@@ -309,7 +308,8 @@ ${formatContext(ctx)}
 
 [품질 기준]
 - 각 문단 5~7문장 — 미달 시 재작성
-- 수치는 반드시 (기관명, 연도) 출처 표기
+- 수치는 시스템 프롬프트의 [출처 표기] 규칙대로 반드시 출처 표기(웹 검색으로 확인한 실제 URL을
+  하이퍼링크로 인용)
 - 추상적 표현("부족", "낮다") 단독 사용 금지 — 반드시 수치 병기
 
 HTML만 출력:`,
@@ -355,7 +355,7 @@ ${formatContext(ctx)}
 
 [품질 기준]
 - 추상적 표현("강화") 단독 사용 금지 — 어떤 방식으로 무엇을 강화하는지 서술
-- 수치는 (기관명, 연도) 출처 표기
+- 수치는 시스템 프롬프트의 [출처 표기] 규칙대로 출처 표기
 - 모든 전략·활동은 문제분석에서 식별된 특정 원인명을 직접 인용하여 1:1로 연결 (일반론적 서술 금지)
 
 HTML만 출력:`,
@@ -1365,10 +1365,7 @@ export async function POST(req: NextRequest) {
       ? SYSTEM_PROMPT + PMC_SYSTEM_ADDENDUM
       : SYSTEM_PROMPT;
 
-    const html = await generateTextPro(
-      [{ role: 'user', content: promptFn(ctx) }],
-      systemPrompt
-    );
+    const html = await generateTextProSearch(promptFn(ctx), systemPrompt);
 
     const cleaned = html
       .replace(/```html\n?/g, '')

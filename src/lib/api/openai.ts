@@ -72,6 +72,23 @@ export async function streamText(
   return fullText;
 }
 
+/** 실제 웹 검색으로 출처를 찾아 인용하게 하는 생성(Responses API + web_search 도구).
+ *  통계·사례 등에 진짜 존재하는 URL을 인용해야 하는 생성(섹션 초안, 컨설팅 답변 등)에서만 사용 —
+ *  일반 채팅형 호출보다 느리고 비용이 더 든다. */
+export async function generateTextProSearch(userPrompt: string, systemPrompt: string): Promise<string> {
+  const openai = getClient();
+  const response = await openai.responses.create({
+    model: MODEL_PRO,
+    instructions: systemPrompt,
+    input: userPrompt,
+    tools: [{ type: 'web_search' }],
+  });
+  const text = response.output_text ?? '';
+  // web_search 도구를 쓰면 모델이 우리가 지정한 <a> 인용 형식 뒤에 자기 출처 표시
+  // "([도메인](URL))"을 중복으로 덧붙이는 경우가 있음 — JSON을 깨뜨리므로 제거
+  return text.replace(/\s*\(\[[^\]]{1,80}\]\(https?:\/\/[^()\s]+\)\)/g, '');
+}
+
 export async function streamTextPro(
   messages: Msg[],
   systemPrompt: string,

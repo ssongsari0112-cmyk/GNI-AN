@@ -4,41 +4,12 @@ import { useRouter } from 'next/navigation';
 import { StepHeader } from '@/components/layout/StepHeader';
 import { Button } from '@/components/ui/Button';
 import { useProjectStore } from '@/lib/store/projectStore';
-import type { Expert, ChatMessage, ExpertSession } from '@/types';
-import { Check, ChevronDown, ChevronUp, Send, CheckCircle2, ArrowRight } from 'lucide-react';
+import type { Expert, ChatMessage } from '@/types';
+import { ChevronDown, ChevronUp, Send, CheckCircle2, ArrowRight, Check } from 'lucide-react';
 import { MarkdownText } from '@/components/ui/MarkdownText';
 import { clsx } from 'clsx';
 
-const EXPERT_INTROS: Record<string, { years: string; areas: string[]; perspective: string }> = {
-  field: {
-    years: '15년 이상',
-    areas: ['분야별 문제 분석', '이해관계자 전략', '성과 지표 설계', '모범사례 적용'],
-    perspective: '분야 전문',
-  },
-  regional: {
-    years: '10년 이상',
-    areas: ['현지 정책 및 CPS', '문화·사회적 맥락', '현지 파트너십', '리스크 분석'],
-    perspective: '현지 정책',
-  },
-  planning: {
-    years: '20년 이상',
-    areas: ['사업 설계 및 ToC', 'PDM 작성', '수혜 대상 설정', '출구 전략'],
-    perspective: '사업 설계',
-  },
-  me: {
-    years: '15년 이상',
-    areas: ['SMART 지표 설계', '기초선 조사 설계', '데이터 수집 체계', '성과 관리'],
-    perspective: '지표 설계',
-  },
-};
-
-function getIntroMessage(expert: Expert, idea?: string): string {
-  const intro = EXPERT_INTROS[expert.type] || EXPERT_INTROS.field;
-  const areaList = intro.areas.map((a) => '- ' + a).join('\n');
-  const ideaSnip = idea ? idea.slice(0, 120) + (idea.length > 120 ? '...' : '') : '';
-  const ideaText = idea ? '\n말씀하신 사업 아이디어를 확인했습니다:\n"' + ideaSnip + '"\n' : '';
-  return '안녕하세요! ' + expert.title + '입니다. 해당 분야에서 ' + intro.years + '의 경험을 가진 전문가입니다. 다양한 국가에서 ODA 사업을 기획하고 실행한 경험이 있습니다.\n\n' + areaList + '\n\n위와 같은 분야에서 도움을 드릴 수 있습니다.' + ideaText + '\n이 내용을 바탕으로 ' + intro.perspective + ' 관점에서 도움을 드리겠습니다. 더 구체적인 질문이나 논의하고 싶은 부분이 있으시면 자유롭게 말씀해주세요.';
-}
+const NONE_LABEL = '잘 모르겠어요, 추천해주세요';
 
 function ExpertAvatar({ expert, active }: { expert: Expert; active: boolean }) {
   const bgColors: Record<string, string> = {
@@ -66,8 +37,10 @@ export default function ExpertsPage() {
 
   const [activeExpertId, setActiveExpertId] = useState<string>(experts[0]?.id || '');
   const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [guideOpen, setGuideOpen] = useState(false);
+  const startedRef = useRef<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeExpert = experts.find((e) => e.id === activeExpertId);
@@ -78,84 +51,108 @@ export default function ExpertsPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, loading]);
 
   useEffect(() => {
     if (experts.length > 0 && !activeExpertId) {
       setActiveExpertId(experts[0].id);
     }
-  }, [experts]);
+  }, [experts, activeExpertId]);
 
-  async function sendMessage() {
-    if (!input.trim() || !activeExpert || streaming) return;
+  // 전문가 탭을 처음 열 때 AI가 첫 질문을 직접 생성
+  useEffect(() => {
+    if (!activeExpert || activeExpert.status === 'completed') return;
+    if (messages.length > 0 || startedRef.current.has(activeExpert.id)) return;
+    startedRef.current.add(activeExpert.id);
+    requestNext(activeExpert.id, []);
+  }, [activeExpert?.id]);
 
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    const newMessages = [...messages, userMsg];
-    updateExpertSession({ expertId: activeExpertId, messages: newMessages, completed: session?.completed || false });
-    setInput('');
-    setStreaming(true);
-
-    const assistantMsgId = crypto.randomUUID();
-    const assistantMsg: ChatMessage = {
-      id: assistantMsgId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date().toISOString(),
-    };
-    updateExpertSession({ expertId: activeExpertId, messages: [...newMessages, assistantMsg], completed: session?.completed || false });
-
+  async function requestNext(expertId: string, history: ChatMessage[]) {
+    const expert = experts.find((e) => e.id === expertId);
+    if (!expert) return;
+    setLoading(true);
+    setError('');
     try {
       const res = await fetch('/api/gni-an/consulting/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          expertType: activeExpert.type,
-          expertTitle: activeExpert.title,
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          expertType: expert.type,
+          expertTitle: expert.title,
+          messages: history.map((m) => ({ role: m.role, content: m.content })),
           ideation,
           analysis: ideationAnalysis,
         }),
       });
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        updateExpertSession({
-          expertId: activeExpertId,
-          messages: [...newMessages, { ...assistantMsg, content: accumulated }],
-          completed: session?.completed || false,
-        });
-      }
-    } catch {
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      const assistantMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: data.message.content,
+        options: data.message.options || [],
+        isFinal: !!data.message.isFinal,
+        timestamp: new Date().toISOString(),
+      };
+      const existingSession = expertSessions.find((s) => s.expertId === expertId);
       updateExpertSession({
-        expertId: activeExpertId,
-        messages: [...newMessages, { ...assistantMsg, content: '응답 중 오류가 발생했습니다.' }],
-        completed: session?.completed || false,
+        expertId,
+        messages: [...history, assistantMsg],
+        completed: existingSession?.completed || false,
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '상담 대화 생성 중 오류가 발생했습니다.');
     } finally {
-      setStreaming(false);
+      setLoading(false);
     }
   }
 
-  function handleComplete() {
-    if (!activeExpert || messages.filter((m) => m.role === 'user').length === 0) return;
-    completeExpert(activeExpertId);
-    updateExpertSession({ expertId: activeExpertId, messages, completed: true });
+  function handleSend() {
+    if (!activeExpert || loading) return;
+    const content = input.trim();
+    if (!content) return;
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString(),
+    };
+    const history = [...messages, userMsg];
+    updateExpertSession({ expertId: activeExpertId, messages: history, completed: session?.completed || false });
+    setInput('');
+    requestNext(activeExpertId, history);
+  }
+
+  function handleConfirmDone() {
+    if (!activeExpert) return;
+    completeExpert(activeExpert.id);
+    updateExpertSession({ expertId: activeExpert.id, messages, completed: true });
+  }
+
+  function handleContinueTalking() {
+    if (!activeExpert) return;
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: '아니요, 조금 더 이야기하고 싶어요.',
+      timestamp: new Date().toISOString(),
+    };
+    const history = [...messages, userMsg];
+    updateExpertSession({ expertId: activeExpertId, messages: history, completed: session?.completed || false });
+    requestNext(activeExpertId, history);
   }
 
   function handleNext() {
     router.push('/gni-an/ideation/clarify');
+  }
+
+  const lastMsg = messages[messages.length - 1];
+  const showFinalActions = !loading && lastMsg?.role === 'assistant' && lastMsg.isFinal && activeExpert?.status !== 'completed';
+  const showOptions = !loading && lastMsg?.role === 'assistant' && !lastMsg.isFinal && (lastMsg.options?.length ?? 0) > 0;
+
+  function selectOption(opt: string) {
+    setInput(opt);
   }
 
   if (!experts.length) {
@@ -203,22 +200,11 @@ export default function ExpertsPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {allCompleted ? (
-                <Button size="sm" onClick={handleNext}>
-                  다음 단계 <ArrowRight size={14} />
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleComplete}
-                  disabled={messages.filter((m) => m.role === 'user').length === 0 || activeExpert?.status === 'completed'}
-                >
-                  상담 완료
-                </Button>
-              )}
-            </div>
+            {allCompleted && (
+              <Button size="sm" onClick={handleNext}>
+                다음 단계 <ArrowRight size={14} />
+              </Button>
+            )}
           </div>
 
           {/* Guide */}
@@ -247,14 +233,6 @@ export default function ExpertsPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {/* 인트로 메시지 */}
-            {activeExpert && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm bg-gray-100 text-gray-800">
-                  <MarkdownText content={getIntroMessage(activeExpert, ideation?.idea)} />
-                </div>
-              </div>
-            )}
             {messages.map((msg) => (
               <div key={msg.id} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div className={clsx(
@@ -263,45 +241,79 @@ export default function ExpertsPage() {
                     ? 'bg-[#8AA81E] text-white rounded-tr-sm'
                     : 'bg-gray-100 text-gray-800 rounded-tl-sm'
                 )}>
-                  {msg.content ? (
-                    msg.role === 'assistant'
-                      ? <MarkdownText content={msg.content} />
-                      : <span>{msg.content}</span>
-                  ) : (streaming && msg.role === 'assistant' ? (
-                    <span className="flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </span>
-                  ) : null)}
+                  {msg.role === 'assistant'
+                    ? <MarkdownText content={msg.content} />
+                    : <span>{msg.content}</span>}
                 </div>
               </div>
             ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.1s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2 flex items-center justify-between">
+                <span>{error}</span>
+                <Button size="sm" variant="secondary" onClick={() => requestNext(activeExpertId, messages)}>다시 시도</Button>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="px-4 pb-4 pt-2 border-t border-gray-100">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                placeholder={`${activeExpert?.title}에게 질문하세요...`}
-                disabled={streaming || activeExpert?.status === 'completed'}
-                className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8AA81E] disabled:bg-gray-50 disabled:text-gray-400"
-              />
-              <Button onClick={sendMessage} disabled={!input.trim() || streaming} size="sm">
-                <Send size={15} />
+          {showFinalActions && (
+            <div className="px-4 pb-3 flex gap-2 justify-end">
+              <Button size="sm" variant="secondary" onClick={handleContinueTalking}>
+                다시 이야기하고 싶어요
+              </Button>
+              <Button size="sm" onClick={handleConfirmDone}>
+                <Check size={14} />이 상담 완료할게요
               </Button>
             </div>
-            {!allCompleted && (
-              <p className="text-xs text-gray-400 mt-1.5 text-center">
-                {experts.filter((e) => e.status !== 'completed').map((e) => e.title.split(' ')[0]).join(', ')} 전문가 상담을 완료해야 다음 단계로 이동할 수 있습니다.
-              </p>
-            )}
-          </div>
+          )}
+
+          {showOptions && (
+            <div className="px-4 pb-2 flex flex-wrap gap-2">
+              {[...(lastMsg!.options || []), NONE_LABEL].map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => selectOption(opt)}
+                  className="text-xs rounded-full px-3 py-1.5 border bg-white text-gray-600 border-gray-200 hover:border-[#8AA81E] hover:text-[#8AA81E] transition-colors"
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          {!showFinalActions && (
+            <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder={`${activeExpert?.title}에게 답해보세요...`}
+                  disabled={loading || activeExpert?.status === 'completed'}
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8AA81E] disabled:bg-gray-50 disabled:text-gray-400"
+                />
+                <Button onClick={handleSend} disabled={!input.trim() || loading || activeExpert?.status === 'completed'} size="sm">
+                  <Send size={15} />
+                </Button>
+              </div>
+            </div>
+          )}
+          {!allCompleted && (
+            <p className="text-xs text-gray-400 pb-3 text-center">
+              {experts.filter((e) => e.status !== 'completed').map((e) => e.title.split(' ')[0]).join(', ')} 전문가 상담을 완료해야 다음 단계로 이동할 수 있습니다.
+            </p>
+          )}
         </div>
       </div>
     </div>
