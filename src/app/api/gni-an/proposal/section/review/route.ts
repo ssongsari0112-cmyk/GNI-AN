@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { streamText, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 export async function POST(req: NextRequest) {
@@ -60,7 +60,7 @@ ${content || '(아직 작성되지 않았습니다)'}
                 : questionText,
             },
           ];
-          await streamTextPro(messages, systemPrompt, (chunk) => {
+          await streamText(messages, systemPrompt, (chunk) => {
             controller.enqueue(encoder.encode(chunk));
           });
           controller.close();

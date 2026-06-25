@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 import { parseAIJson } from '@/lib/parseJSON';
 import { buildReferencePromptBlock } from '@/lib/pmcContext';
 
@@ -55,7 +55,7 @@ ${referenceBlock}
   "keyInsights": ["인사이트1", "인사이트2", "인사이트3"]
 }`;
 
-    const result = await generateTextPro([{ role: 'user', content: userMessage }], systemPrompt);
+    const result = await generateText([{ role: 'user', content: userMessage }], systemPrompt);
     const parsed = parseAIJson(result);
 
     return NextResponse.json({ success: true, data: parsed });

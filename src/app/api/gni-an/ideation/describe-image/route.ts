@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 
 const SYSTEM_PROMPT = `당신은 국제개발협력사업 기획 보조자입니다.
 첨부된 이미지를 보고, 이 사업 기획에 참고할 수 있는 내용을 한국어로 객관적으로 설명하세요.
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const description = await generateTextPro(
+    const description = await generateText(
       [{
         role: 'user',
         content: [

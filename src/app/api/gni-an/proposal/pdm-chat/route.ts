@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 function uid() {
@@ -67,7 +67,7 @@ ${message}
 
 위 형식의 JSON 객체만 출력:`;
 
-    const raw = await generateTextPro([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
+    const raw = await generateText([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     let parsed: { reply?: string; updatedPdm?: unknown } = {};

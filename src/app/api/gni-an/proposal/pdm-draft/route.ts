@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcSourceText, buildReferencePromptBlock } from '@/lib/pmcContext';
 import { reconcilePdmWithObjectiveTree } from '@/lib/reconcilePdm';
-import { sanitizeDeep } from '@/lib/parseJSON';
+import { parseAIJson } from '@/lib/parseJSON';
 import type { PDMRow, PDMInput } from '@/types';
 
 function uid() {
@@ -289,8 +289,7 @@ function sanitizeInputs(inputs: PDMInput[]): PDMInput[] {
 
 function parsePdmResult(raw: string): { pdm: PDMRow[]; inputs: PDMInput[] } | null {
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = sanitizeDeep(JSON.parse(cleaned));
+    const parsed = parseAIJson(raw) as { pdm?: PDMRow[]; inputs?: PDMInput[] };
     if (Array.isArray(parsed.pdm) && parsed.pdm.length > 0) {
       return {
         pdm: parsed.pdm,

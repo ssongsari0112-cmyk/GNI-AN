@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 
 const SYSTEM_PROMPT = `당신은 KOICA 국별협력사업(PMC) 집행계획(안) 문서 분석 전문가입니다.
 제공된 문서 원문에서 사업의 핵심 정보를 정확하게 추출하세요.
@@ -57,7 +57,7 @@ ${extractedText.slice(0, 12000)}
 JSON만 출력:`;
 
   try {
-    const raw = await generateTextPro([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
+    const raw = await generateText([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON');
     const analyzed = JSON.parse(match[0]);

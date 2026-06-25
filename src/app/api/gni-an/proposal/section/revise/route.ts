@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 
 const SYSTEM_PROMPT = `당신은 KOICA 제안서 작성 전문가입니다.
 주어진 섹션의 기존 내용을 "반영할 피드백/지시"에 따라 직접 수정한 최종본을 작성하세요.
@@ -44,7 +44,7 @@ ${feedback}
 
 수정된 전체 본문 HTML만 출력:`;
 
-    const html = await generateTextPro([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
+    const html = await generateText([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
     const cleaned = html.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
 
     return NextResponse.json({ success: true, html: cleaned });

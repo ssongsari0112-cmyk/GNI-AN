@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcSourceText, buildReferencePromptBlock } from '@/lib/pmcContext';
+import { parseAIJson } from '@/lib/parseJSON';
 
 const SYSTEM_PROMPT = `당신은 KOICA 제안서 "부문별 상세 사업 추진일정"(간트차트) 수립 전문가입니다.
 주어진 활동 목록과 전체 사업 기간(월 수)을 바탕으로, 각 활동이 몇 번째 달부터
@@ -53,12 +54,11 @@ ${JSON.stringify(activities.map((a: { id: string; code: string; name: string }) 
 ${projectType === 'pmc' ? 'PMC 사업이므로 위 KOICA 집행계획(안) 원문의 일정을 최대한 반영하세요.' : '사업 특성에 맞게 합리적으로 판단하여 배정하세요.'}
 위 형식의 JSON 객체만 출력:`;
 
-    const raw = await generateTextPro([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const raw = await generateText([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
 
     let parsed: { schedule?: { id: string; startMonth: number; endMonth: number }[] } = {};
     try {
-      parsed = JSON.parse(cleaned);
+      parsed = parseAIJson(raw) as typeof parsed;
     } catch {
       return NextResponse.json({ success: false, error: '일정 생성 결과를 해석하지 못했습니다.' }, { status: 500 });
     }

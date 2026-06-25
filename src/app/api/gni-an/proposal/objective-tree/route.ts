@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
-import { sanitizeDeep } from '@/lib/parseJSON';
+import { parseAIJson } from '@/lib/parseJSON';
 
 /* ── 목표나무 생성 (문제나무의 부정적 표현 → 긍정적 전환) ─────────────── */
 
@@ -31,6 +31,9 @@ const SYSTEM_PROMPT = `당신은 KOICA 국제개발사업 기획 전문가입니
 1. Impact(영향/목표): SDGs와 연계한 장기 변화 목표 (1개)
 2. Purpose(사업목적): 사업 종료 시 달성할 핵심 목적 (1개)
 3. Outcomes(성과/산출목적): 위 1:1 대응 원칙에 따른 개수, 각각 outputs 포함
+4. Activities(활동): 모든 Output을 합쳐 각 Output당 1~2개씩 구체적인 활동을 만들어
+   activities 배열에 담을 것(절대 빈 배열로 두지 말 것). 이후 PDM 단계에서 이 활동들이
+   그대로 이어져 확장되므로, 추상적 구호가 아니라 실행 가능한 구체적 활동으로 작성
 
 작성 규칙:
 - 모든 노드 텍스트는 "긍정적 목표 형태"로 작성 (향상, 강화, 확대, 구축 등)
@@ -55,7 +58,10 @@ const SYSTEM_PROMPT = `당신은 KOICA 국제개발사업 기획 전문가입니
     }
   ],
   "outputs": [],
-  "activities": []
+  "activities": [
+    {"id": "act1", "text": "산출물 1.1을 위한 구체적 활동", "level": "activity"},
+    {"id": "act2", "text": "산출물 1.2를 위한 구체적 활동", "level": "activity"}
+  ]
 }`;
 
 const FALLBACK_TREE = {
@@ -128,6 +134,8 @@ ${contextLines}
 - Outcomes: 위 문제나무의 직접 원인(causes) 개수와 정확히 동일한 개수, 같은 순서로 1개씩 대응.
   각 Outcome의 Output 개수는 해당 직접 원인의 세부 원인(children) 개수에 맞추되, 세부 원인이
   1개뿐이면 Output을 2개 이상으로 세분화 (Output 1개는 절대 금지)
+- Activities: activities를 빈 배열로 두지 말 것. 모든 Output에 대해 1~2개씩 구체적 활동을
+  만들어 합산한 flat 배열로 작성 (Output 개수가 N개면 activities는 최소 N개 이상)
 
 [최우선 — "핵심 아이디어"에 사용자가 명시적으로 요청한 내용은 절대 누락 금지]
 "핵심 아이디어" 텍스트 안에 "~꼭 추가해줘", "~포함해줘", "~빠지지 않게 해줘"처럼 사용자가 직접
@@ -138,11 +146,13 @@ JSON만 출력:`;
 
   try {
     const raw = await generateTextPro([{ role: 'user', content: userPrompt }], SYSTEM_PROMPT);
-
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found');
-
-    const tree = sanitizeDeep(JSON.parse(jsonMatch[0]));
+    const tree = parseAIJson(raw) as {
+      impact?: string;
+      purpose?: string;
+      outcomes?: unknown[];
+      outputs?: unknown[];
+      activities?: unknown[];
+    };
 
     if (!tree.impact || !tree.purpose || !Array.isArray(tree.outcomes)) {
       throw new Error('Invalid tree structure');

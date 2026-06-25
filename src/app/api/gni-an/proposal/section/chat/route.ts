@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTextPro, isOpenAIConfigured } from '@/lib/api/openai';
+import { generateText, isOpenAIConfigured } from '@/lib/api/openai';
 import { buildPmcPromptBlock, buildReferencePromptBlock } from '@/lib/pmcContext';
 
 const SYSTEM_PROMPT = `당신은 KOICA 제안서 작성 전문 AI 어시스턴트입니다.
@@ -79,7 +79,7 @@ ${message}${imageDataUrl ? '\n\n(사용자가 참고용 이미지를 첨부했�
         ]
       : questionText;
 
-    const raw = await generateTextPro([{ role: 'user', content: userContent }], SYSTEM_PROMPT);
+    const raw = await generateText([{ role: 'user', content: userContent }], SYSTEM_PROMPT);
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     let parsed: { reply?: string; updatedHtml?: unknown } = {};
