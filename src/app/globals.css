@@ -33,6 +33,13 @@ body {
 }
 .citation-chip:hover { background: #D9E6B7; }
 
+/* ── AI가 인용한 실제 출처 하이퍼링크 — 링크가 걸려 있다는 걸 한눈에 알 수 있도록 파란색 표시 ── */
+a[target="_blank"] {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+a[target="_blank"]:hover { color: #1e40af; }
+
 /* ── 마크다운 채팅 렌더링 ── */
 .markdown-body { line-height: 1.75; }
 .markdown-body h1 { font-size: 1rem; font-weight: 700; margin: 0.6em 0 0.3em; }
