@@ -475,7 +475,8 @@ export default function IdeationPage() {
               </div>
             )}
             <h1 className="text-2xl font-bold text-[#111827] mb-1">사업 아이디어 입력</h1>
-            <p className="text-gray-500 text-sm mb-5">기본 정보를 입력하면 AI가 분석하고 전문가 컨설팅을 준비합니다</p>
+            <p className="text-gray-500 text-sm mb-1">기본 정보를 입력하면 AI가 분석하고 전문가 컨설팅을 준비합니다</p>
+            <p className="text-xs text-gray-400 mb-5"><span className="text-red-500">*</span> 표시는 필수 입력 항목이에요. 모두 채워야 아래 &quot;AI 분석 시작&quot; 버튼을 누를 수 있어요.</p>
           </div>
 
           <div className="px-6 pb-6">
