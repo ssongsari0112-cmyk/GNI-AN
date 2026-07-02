@@ -140,6 +140,8 @@ function CountryModal({ value, onChange }: { value: string; onChange: (v: string
             <span className="font-mono text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{selected.code}</span>
             {selected.name}
           </span>
+        ) : value ? (
+          <span className="text-gray-800">{value}</span>
         ) : (
           <span className="text-gray-400">대상 국가 선택</span>
         )}
